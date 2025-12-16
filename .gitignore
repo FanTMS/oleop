@@ -9,3 +9,5 @@ oleop/
 *.sh
 app.js
 server.py
+fix-git-auth.bat
+fix-git-push.bat
