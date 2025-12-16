@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: telegram-chat-app
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # PORT устанавливается автоматически Render
+      # ADMIN_TELEGRAM_ID нужно установить вручную через веб-интерфейс Render
+      # Значение: ваш Telegram ID (можно узнать через @userinfobot)
+    healthCheckPath: /
+

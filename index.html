@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#ffffff">
+    <title>Анонимный чат - Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Принудительная светлая тема */
+        html,
+        body {
+            color-scheme: light !important;
+            background-color: #ffffff !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Экран регистрации/авторизации -->
+    <div id="authScreen" class="screen active">
+        <!-- Прогресс-бар - перемещен выше для лучшей видимости -->
+        <div class="progress-bar">
+            <div class="progress-steps">
+                <div class="step-indicator active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Имя</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-indicator" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Возраст</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-indicator" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Пол</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-indicator" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">Интересы</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="auth-container">
+            <div class="logo">
+                <h1>Регистрация</h1>
+                <p>Заполните форму для доступа к системе</p>
+            </div>
+
+            <div class="auth-form">
+                <!-- Шаг 1: Имя -->
+                <div id="step1" class="form-step active">
+                    <h2>Шаг 1 из 4</h2>
+                    <p class="step-description">Укажите ваше имя</p>
+                    <div class="input-group">
+                        <label for="registerName">Имя</label>
+                        <input type="text" id="registerName" placeholder="Введите ваше имя" required>
+                    </div>
+                    <div class="form-navigation">
+                        <button class="btn btn-secondary" data-action="prev" disabled
+                            style="display: none;">Назад</button>
+                        <button class="btn btn-primary" data-action="next">Далее</button>
+                    </div>
+                </div>
+
+                <!-- Шаг 2: Возраст -->
+                <div id="step2" class="form-step">
+                    <h2>Шаг 2 из 4</h2>
+                    <p class="step-description">Укажите ваш возраст</p>
+                    <div class="input-group">
+                        <label for="registerAge">Возраст</label>
+                        <input type="number" id="registerAge" placeholder="Введите ваш возраст" min="13" max="120"
+                            required>
+                        <small>Минимальный возраст: 13 лет</small>
+                    </div>
+                    <div class="form-navigation">
+                        <button class="btn btn-secondary" data-action="prev">Назад</button>
+                        <button class="btn btn-primary" data-action="next">Далее</button>
+                    </div>
+                </div>
+
+                <!-- Шаг 3: Пол -->
+                <div id="step3" class="form-step">
+                    <h2>Шаг 3 из 4</h2>
+                    <p class="step-description">Выберите ваш пол</p>
+                    <div class="input-group">
+                        <label for="registerGender">Пол</label>
+                        <select id="registerGender" required>
+                            <option value="">Выберите пол</option>
+                            <option value="male">Мужской</option>
+                            <option value="female">Женский</option>
+                            <option value="other">Другой</option>
+                            <option value="prefer_not_to_say">Предпочитаю не указывать</option>
+                        </select>
+                    </div>
+                    <div class="form-navigation">
+                        <button class="btn btn-secondary" data-action="prev">Назад</button>
+                        <button class="btn btn-primary" data-action="next">Далее</button>
+                    </div>
+                </div>
+
+                <!-- Шаг 4: Интересы -->
+                <div id="step4" class="form-step">
+                    <h2>Шаг 4 из 4</h2>
+                    <p class="step-description">Выберите ваши интересы</p>
+                    <div class="input-group">
+                        <label>Интересы</label>
+                        <div class="interests-grid" id="interestsContainer">
+                            <!-- Интересы будут добавлены через JavaScript -->
+                        </div>
+                        <small>Выберите минимум 1 интерес</small>
+                    </div>
+                    <div class="form-navigation">
+                        <button class="btn btn-secondary" data-action="prev">Назад</button>
+                        <button class="btn btn-primary" data-action="register">Завершить регистрацию</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="authError" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Главное приложение с навигацией -->
+    <div id="mainApp" class="screen">
+        <!-- Экран Главная -->
+        <div id="homeScreen" class="app-screen active">
+            <div class="screen-header">
+                <h2>Главная</h2>
+            </div>
+            <div class="screen-content">
+                <div class="info-card">
+                    <div class="info-card-coins-balance">
+                        <span class="coins-icon">🪙</span>
+                        <span class="coins-amount" id="homeCoinsBalance">0</span>
+                    </div>
+                    <h3>Информация о профиле</h3>
+                    <div class="profile-preview">
+                        <div class="preview-item">
+                            <span class="preview-label">Имя:</span>
+                            <span class="preview-value" id="previewName">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Возраст:</span>
+                            <span class="preview-value" id="previewAge">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Пол:</span>
+                            <span class="preview-value" id="previewGender">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Рейтинг:</span>
+                            <span class="preview-value" id="previewRating">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Интересы:</span>
+                            <span class="preview-value" id="previewInterests">-</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-large" onclick="startSearching()">
+                    Поиск собеседника
+                </button>
+                <div class="search-status" id="searchStatus" style="display: none;">
+                    <p>Поиск собеседника...</p>
+                    <button class="btn btn-secondary" onclick="stopSearching()">Отменить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран Чаты -->
+        <div id="chatsScreen" class="app-screen">
+            <div class="screen-header">
+                <h2>Чаты</h2>
+            </div>
+            <div class="screen-content">
+                <div id="chatsList" class="chats-list">
+                    <div class="empty-state">
+                        <div class="empty-icon">💬</div>
+                        <h3>Нет активных чатов</h3>
+                        <p>Начните поиск собеседника на главной странице</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран Магазин -->
+        <div id="shopScreen" class="app-screen">
+            <div class="screen-header">
+                <h2>Магазин</h2>
+                <div class="info-card-coins-balance">
+                    <span class="coins-icon">🪙</span>
+                    <span class="coins-amount" id="shopCoinsBalance">0</span>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="shop-tabs">
+                    <button class="shop-tab active" data-shop-tab="items">
+                        <span>🛍️</span>
+                        <span>Товары</span>
+                    </button>
+                </div>
+                <div id="shopItemsList" class="shop-items-list shop-tab-content active">
+                    <!-- Товары будут загружены через JavaScript -->
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Экран Профиль -->
+        <div id="profileScreen" class="app-screen">
+            <div class="screen-header">
+                <h2>Профиль</h2>
+            </div>
+            <div class="screen-content">
+                <div class="profile-tabs">
+                    <button class="tab-btn active" data-tab="info">Информация</button>
+                    <button class="tab-btn" data-tab="achievements">Достижения</button>
+                    <button class="tab-btn" data-tab="quests">Задания</button>
+                </div>
+                <div class="tab-content active" id="tabInfo">
+                    <div class="profile-card">
+                        <div class="profile-section">
+                            <label>Имя</label>
+                            <div class="profile-value" id="profileName">-</div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Бейдж</label>
+                            <div class="profile-value" id="profileBadge">
+                                <span id="profileBadgeText">-</span>
+                                <span id="profileBadgeDate" class="badge-date"></span>
+                            </div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Возраст</label>
+                            <div class="profile-value" id="profileAge">-</div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Пол</label>
+                            <div class="profile-value" id="profileGender">-</div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Рейтинг</label>
+                            <div class="profile-value">
+                                <span id="profileRating">-</span>
+                                <span class="rating-stars" id="profileRatingStars"></span>
+                            </div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Интересы</label>
+                            <div class="profile-interests" id="profileInterests"></div>
+                        </div>
+                        <div class="profile-section">
+                            <label>Статистика</label>
+                            <div class="profile-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Всего чатов:</span>
+                                    <span class="stat-value" id="statTotalChats">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Получено оценок:</span>
+                                    <span class="stat-value" id="statTotalRatings">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="handleLogout()">Выйти</button>
+                </div>
+                <div class="tab-content" id="tabAchievements">
+                    <div id="achievementsList" class="achievements-list">
+                        <!-- Достижения будут загружены через JavaScript -->
+                    </div>
+                </div>
+                <div class="tab-content" id="tabQuests">
+                    <div id="profileQuestsList" class="quests-list">
+                        <!-- Задания будут загружены через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Нижняя навигация -->
+        <div class="bottom-nav">
+            <div class="nav-backdrop"></div>
+            <button class="nav-item active" onclick="showScreen('home')" data-screen="home">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M9 22V12H15V22" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <span class="nav-label">Главная</span>
+                <div class="nav-indicator"></div>
+            </button>
+            <button class="nav-item" onclick="showScreen('chats')" data-screen="chats">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <span class="nav-label">Чаты</span>
+                <span class="nav-badge" id="chatsBadge" style="display: none;">0</span>
+                <div class="nav-indicator"></div>
+            </button>
+            <button class="nav-item" onclick="showScreen('shop')" data-screen="shop">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.7 15.3C4.3 15.7 4.6 16.5 5.1 16.5H17M17 13V17C17 18.1 17.9 19 19 19C20.1 19 21 18.1 21 17V13M9 19.5C9 20.3 9.7 21 10.5 21C11.3 21 12 20.3 12 19.5C12 18.7 11.3 18 10.5 18C9.7 18 9 18.7 9 19.5ZM19.5 19.5C19.5 20.3 20.2 21 21 21C21.8 21 22.5 20.3 22.5 19.5C22.5 18.7 21.8 18 21 18C20.2 18 19.5 18.7 19.5 19.5Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <span class="nav-label">Магазин</span>
+                <div class="nav-indicator"></div>
+            </button>
+            <button class="nav-item" onclick="showScreen('profile')" data-screen="profile">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <span class="nav-label">Профиль</span>
+                <div class="nav-indicator"></div>
+            </button>
+            <button class="nav-item" onclick="showAdminLogin()" data-screen="admin">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 15V17M6 21H18C19.1046 21 20 20.1046 20 19V5C20 3.89543 19.1046 3 18 3H6C4.89543 3 4 3.89543 4 5V19C4 20.1046 4.89543 21 6 21Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M8 7H16M8 11H16M8 15H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <span class="nav-label">Админ</span>
+                <div class="nav-indicator"></div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Экран активного чата -->
+    <div id="activeChatScreen" class="screen">
+        <div class="chat-header">
+            <button class="btn-icon btn-back" onclick="closeActiveChat()" title="Назад">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="header-info">
+                <h2 id="chatPartnerName">Собеседник</h2>
+                <p id="chatPartnerInfo">Анонимный пользователь</p>
+                <span id="chatPartnerStatus" class="chat-partner-status">онлайн</span>
+            </div>
+            <div class="chat-header-actions">
+                <button class="btn-icon btn-report" onclick="showReportModal()" title="Пожаловаться">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <button class="btn-icon btn-end-chat" onclick="endChat()" title="Завершить чат">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div id="messagesContainer" class="messages-container">
+                <!-- Сообщения будут здесь -->
+            </div>
+            <div id="typingIndicator" class="typing-indicator" style="display: none;">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <span class="typing-text">Собеседник печатает...</span>
+            </div>
+
+            <div class="input-area">
+                <button class="btn btn-games" data-action="show-games-menu" title="Игры">
+                    🎮
+                </button>
+                <button class="btn btn-gift" data-action="show-gift-modal" title="Подарок">
+                    🎁
+                </button>
+                <div id="replyPreview" class="reply-preview" style="display: none;">
+                    <div class="reply-content">
+                        <div class="reply-author"></div>
+                        <div class="reply-text"></div>
+                    </div>
+                    <button class="btn-reply-close" onclick="clearReply()">×</button>
+                </div>
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500">
+                <button class="btn btn-send" data-action="send-message" title="Отправить">
+                    <span class="send-icon"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Меню выбора игры -->
+    <div id="gamesMenuModal" class="modal">
+        <div class="modal-content games-menu">
+            <h3>Выберите игру</h3>
+            <p>Во что хотите сыграть?</p>
+            <div class="games-list" id="gamesList">
+                <!-- Игры будут добавлены через JavaScript -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="close-games-menu">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно выбора типа игры (с ставкой/без ставки) -->
+    <div id="gameBetModal" class="modal">
+        <div class="modal-content">
+            <h3 id="gameBetTitle">🎮 Выберите тип игры</h3>
+            <div class="form-group">
+                <label>Тип игры:</label>
+                <div class="bet-type-selector">
+                    <button class="btn btn-secondary bet-type-btn active" data-bet-type="free" id="betTypeFree">
+                        Бесплатная игра
+                    </button>
+                    <button class="btn btn-secondary bet-type-btn" data-bet-type="bet" id="betTypeBet">
+                        Игра на ставку
+                    </button>
+                </div>
+            </div>
+            <div class="form-group" id="betAmountGroup" style="display: none;">
+                <label>Сумма ставки (от 5 до 20 монет):</label>
+                <input type="number" id="betAmount" class="form-input" min="5" max="20" value="5" placeholder="5">
+                <small class="form-hint">Победитель получит удвоенную сумму, проигравший потеряет ставку</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="cancel-game-bet">Отмена</button>
+                <button class="btn btn-primary" data-action="confirm-game-bet">Отправить предложение</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Игра Камень-ножницы-бумага -->
+    <div id="rpsGameModal" class="modal">
+        <div class="modal-content game-modal">
+            <h3>✂️ Камень-ножницы-бумага</h3>
+            <div id="rpsGameStatus" class="game-status">Выберите ваш выбор</div>
+            <div class="rps-choices" id="rpsChoices">
+                <button class="rps-choice" data-choice="rock" data-action="rps-choice">
+                    <span class="rps-icon">🪨</span>
+                    <span class="rps-label">Камень</span>
+                </button>
+                <button class="rps-choice" data-choice="scissors" data-action="rps-choice">
+                    <span class="rps-icon">✂️</span>
+                    <span class="rps-label">Ножницы</span>
+                </button>
+                <button class="rps-choice" data-choice="paper" data-action="rps-choice">
+                    <span class="rps-icon">📄</span>
+                    <span class="rps-label">Бумага</span>
+                </button>
+            </div>
+            <div id="rpsResult" class="rps-result" style="display: none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="close-rps-game">Закрыть</button>
+                <button class="btn btn-primary" data-action="reset-rps-game" id="resetRPSBtn"
+                    style="display: none;">Играть снова</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Игра Крестики-нолики -->
+    <div id="tttGameModal" class="modal">
+        <div class="modal-content game-modal">
+            <h3>⭕ Крестики-нолики</h3>
+            <div id="tttGameStatus" class="game-status">Ход игрока X</div>
+            <div class="ttt-board" id="tttBoard">
+                <!-- Клетки будут созданы через JavaScript -->
+            </div>
+            <div id="tttResult" class="ttt-result" style="display: none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="close-ttt-game">Закрыть</button>
+                <button class="btn btn-primary" data-action="reset-ttt-game" id="resetTTTBtn">Новая игра</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно жалобы -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <h3>⚠️ Пожаловаться на собеседника</h3>
+            <p>Выберите причину жалобы и опишите ситуацию</p>
+            <div class="report-form">
+                <div class="form-group">
+                    <label>Причина жалобы:</label>
+                    <select id="reportReason" class="form-input" required>
+                        <option value="">Выберите причину</option>
+                        <option value="spam">Спам</option>
+                        <option value="harassment">Оскорбления и харассмент</option>
+                        <option value="inappropriate_content">Неуместный контент</option>
+                        <option value="scam">Мошенничество</option>
+                        <option value="fake_profile">Поддельный профиль</option>
+                        <option value="other">Другое</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="reportDescription" class="form-input" rows="4"
+                        placeholder="Опишите ситуацию подробнее..." required maxlength="500"></textarea>
+                    <div class="char-count" style="text-align: right; font-size: 12px; color: #666; margin-top: 5px;">
+                        <span id="reportCharCount">0</span>/500
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="close-report-modal">Отмена</button>
+                <button class="btn btn-danger" data-action="submit-report">Отправить жалобу</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Админ-панель -->
+    <div id="adminScreen" class="screen">
+        <!-- Экран входа -->
+        <div id="adminLogin" class="admin-login">
+            <div class="admin-login-container">
+                <h2>🔐 Админ-панель</h2>
+                <p>Введите пароль для доступа</p>
+                <input type="password" id="adminPassword" placeholder="Пароль" class="admin-input">
+                <button class="btn btn-primary" data-action="admin-login">Войти</button>
+                <button class="btn btn-secondary" data-action="admin-cancel">Отмена</button>
+            </div>
+        </div>
+
+        <!-- Основная панель -->
+        <div class="admin-panel">
+            <div class="admin-header">
+                <h2>Админ-панель</h2>
+                <button class="btn btn-secondary" data-action="admin-logout">Выйти</button>
+            </div>
+
+            <div class="admin-nav">
+                <button class="admin-nav-item active" data-admin-screen="stats" data-action="show-admin-stats">
+                    📊 Статистика
+                </button>
+                <button class="admin-nav-item" data-admin-screen="users" data-action="show-admin-users">
+                    👥 Пользователи
+                </button>
+                <button class="admin-nav-item" data-admin-screen="chats" data-action="show-admin-chats">
+                    💬 Чаты
+                </button>
+                <button class="admin-nav-item" data-admin-screen="reports" data-action="show-admin-reports">
+                    ⚠️ Жалобы
+                </button>
+                <button class="admin-nav-item" data-admin-screen="bot" data-action="show-admin-bot">
+                    🤖 Бот
+                </button>
+            </div>
+
+            <div id="adminContent" class="admin-content">
+                <!-- Контент будет загружаться динамически -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно найденной пары -->
+    <div id="matchFoundModal" class="modal">
+        <div class="modal-content">
+            <div class="match-found-content">
+                <div class="match-icon">🎉</div>
+                <h3>Поздравляем, пара найдена!</h3>
+                <div class="partner-info">
+                    <p class="partner-name" id="matchPartnerName">Собеседник</p>
+                    <p class="partner-rating" id="matchPartnerRating">Рейтинг: ⭐ 0.0</p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="goToChatBtn" onclick="goToMatchedChat()">Перейти в чат</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно оценки -->
+    <div id="ratingModal" class="modal">
+        <div class="modal-content">
+            <h3>Оцените собеседника</h3>
+            <p>Как вам общение с этим пользователем?</p>
+            <div class="rating-stars-large">
+                <button class="star-btn" data-rating="1" onclick="setRating(1)">★</button>
+                <button class="star-btn" data-rating="2" onclick="setRating(2)">★</button>
+                <button class="star-btn" data-rating="3" onclick="setRating(3)">★</button>
+                <button class="star-btn" data-rating="4" onclick="setRating(4)">★</button>
+                <button class="star-btn" data-rating="5" onclick="setRating(5)">★</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeRatingModal()">Пропустить</button>
+                <button class="btn btn-primary" onclick="submitRating()" id="submitRatingBtn" disabled>Оценить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно запроса на игру -->
+    <div id="gameRequestModal" class="modal">
+        <div class="modal-content">
+            <h3 id="gameRequestTitle">🎮 Предложение игры</h3>
+            <p id="gameRequestText">Собеседник предлагает сыграть. Принять?</p>
+            <div id="gameRequestBetInfo" style="display: none; margin: 15px 0; padding: 12px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border: 2px solid rgba(255, 215, 0, 0.3);">
+                <strong>💰 Ставка:</strong> <span id="gameRequestBetAmount">0</span> монет
+                <br><small>Победитель получит удвоенную сумму, проигравший потеряет ставку</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="reject-game-request">Отклонить</button>
+                <button class="btn btn-primary" data-action="accept-game-request">Принять</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно ежедневного бонуса -->
+    <!-- Модальное окно создания именного бейджа -->
+    <div id="customBadgeModal" class="modal">
+        <div class="modal-content">
+            <h3>🏷️ Создать именной бейдж</h3>
+            <div class="form-group">
+                <label for="customBadgeText">Текст бейджа:</label>
+                <input type="text" id="customBadgeText" class="form-input" maxlength="20" placeholder="Введите текст бейджа (до 20 символов)">
+            </div>
+            <div class="form-group">
+                <label>Цвет бейджа:</label>
+                <div class="badge-color-picker">
+                    <button class="badge-color-btn" data-color="#4caf50" style="background: #4caf50;" title="Зеленый"></button>
+                    <button class="badge-color-btn" data-color="#ff9800" style="background: #ff9800;" title="Оранжевый"></button>
+                    <button class="badge-color-btn" data-color="#f44336" style="background: #f44336;" title="Красный"></button>
+                    <button class="badge-color-btn" data-color="#2196f3" style="background: #2196f3;" title="Синий"></button>
+                    <button class="badge-color-btn" data-color="#9c27b0" style="background: #9c27b0;" title="Фиолетовый"></button>
+                    <button class="badge-color-btn" data-color="#00bcd4" style="background: #00bcd4;" title="Голубой"></button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeCustomBadgeModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="createCustomBadge()">Создать за 500🪙</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dailyBonusModal" class="modal">
+        <div class="modal-content">
+            <h3>🎁 Ежедневный бонус</h3>
+            <div class="bonus-content">
+                <div class="bonus-icon">🎉</div>
+                <p class="bonus-message">Добро пожаловать!</p>
+                <div class="bonus-reward">
+                    <span class="bonus-coins">0</span>
+                    <span class="coins-icon">🪙</span>
+                </div>
+                <div class="bonus-streak-info">
+                    Серия дней: <span class="bonus-streak">1</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeDailyBonusModal()">Забрать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно заданий -->
+    <div id="questsModal" class="modal">
+        <div class="modal-content">
+            <h3>📋 Задания</h3>
+            <div id="questsList" class="quests-list">
+                <!-- Задания будут загружены через JavaScript -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeQuestsModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подарка в чате -->
+    <div id="giftModal" class="modal">
+        <div class="modal-content">
+            <h3>🎁 Отправить подарок</h3>
+            <div id="giftItemsList" class="gift-items-list">
+                <!-- Товары для подарка будут загружены через JavaScript -->
+            </div>
+            <div class="form-group" style="display: none;" id="giftMessageGroup">
+                <label for="giftMessage">Сообщение (необязательно):</label>
+                <textarea id="giftMessage" class="form-input" rows="3" maxlength="200" placeholder="Добавьте сообщение к подарку..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeGiftModal()">Отмена</button>
+                <button class="btn btn-primary" id="sendGiftButton" onclick="sendGift()">Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно бейджей -->
+    <div id="badgesModal" class="modal">
+        <div class="modal-content">
+            <h3>🏆 Бейджи и титулы</h3>
+            <div class="badges-tabs">
+                <button class="tab-btn active" data-badge-tab="badges">Бейджи</button>
+                <button class="tab-btn" data-badge-tab="titles">Титулы</button>
+            </div>
+            <div id="badgesList" class="badges-list">
+                <!-- Бейджи будут загружены через JavaScript -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeBadgesModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

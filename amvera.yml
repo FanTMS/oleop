@@ -1,0 +1,38 @@
+# Конфигурация для Amvera
+# Документация: https://docs.amvera.io
+
+# Версия конфигурации
+version: 1
+
+# Настройки сборки
+build:
+  # Команда сборки (установка зависимостей)
+  commands:
+    - npm install
+
+# Настройки запуска
+run:
+  # Команда запуска приложения
+  command: npm start
+  
+  # Порт приложения (Amvera автоматически назначит порт через переменную окружения PORT)
+  port: ${PORT:-3000}
+
+# Переменные окружения (можно также настроить в панели управления)
+env:
+  NODE_ENV: production
+  PORT: 3000
+
+# Исключения из архива (не загружаются на сервер)
+exclude:
+  - node_modules
+  - .git
+  - .gitignore
+  - *.log
+  - .env.local
+  - .history
+  - *.bat
+  - *.sh
+  - oleop
+  - database.db
+

@@ -1,0 +1,11 @@
+node_modules/
+database.db
+*.log
+.DS_Store
+.env
+.history/
+oleop/
+*.bat
+*.sh
+app.js
+server.py
