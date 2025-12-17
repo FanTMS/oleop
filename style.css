@@ -278,15 +278,10 @@ body {
 
 /* Прогресс-бар */
 .progress-bar {
-    margin-bottom: 0;
-    padding: 16px 20px;
-    background: var(--bg-color);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+    padding: 12px 0;
+    background: transparent;
     width: 100%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .progress-steps {
@@ -2172,7 +2167,17 @@ body {
     letter-spacing: -0.01em;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.chat-item-name > span:first-of-type {
+    flex-shrink: 0;
+}
+
+.chat-item-name > span:not(:first-of-type) {
+    flex-shrink: 0;
 }
 
 .chat-item-name::before {
@@ -2275,10 +2280,12 @@ body {
     background: linear-gradient(135deg, #007AFF 0%, #0051D5 100%);
     color: white;
     border-radius: 8px;
-    margin-left: 8px;
+    margin-left: 4px;
     font-weight: 600;
     text-transform: uppercase;
     box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .chats-section {
@@ -5029,6 +5036,9 @@ body {
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
+    margin-left: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .admin-chat-preview {

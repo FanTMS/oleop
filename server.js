@@ -2441,16 +2441,24 @@ app.post('/api/chats/:id/messages', async (req, res) => {
         // Обновляем прогресс заданий для отправки сообщений
         try {
             // Создаем записи прогресса для новых заданий
-            await dbRun(`
-                INSERT INTO user_quests (id, user_id, quest_id, progress)
-                SELECT ?, ?, q.id, 1
+            // Находим задания, для которых еще нет записей прогресса
+            const newQuests = await dbAll(`
+                SELECT q.id as quest_id
                 FROM quests q
                 WHERE q.quest_type = 'send_messages' AND q.is_active = 1
                 AND NOT EXISTS (
                     SELECT 1 FROM user_quests uq 
                     WHERE uq.user_id = ? AND uq.quest_id = q.id
                 )
-            `, [uuidv4(), userId, userId]);
+            `, [userId]);
+
+            // Создаем записи по одной с уникальными ID
+            for (const quest of newQuests) {
+                await dbRun(
+                    'INSERT INTO user_quests (id, user_id, quest_id, progress) VALUES (?, ?, ?, ?)',
+                    [uuidv4(), userId, quest.quest_id, 1]
+                );
+            }
 
             // Обновляем прогресс существующих заданий
             await dbRun(`
