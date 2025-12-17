@@ -20,8 +20,30 @@
 </head>
 
 <body>
+    <!-- Загрузочный экран -->
+    <div id="loadingScreen" class="screen active">
+        <div class="loading-waves">
+            <div class="loading-wave"></div>
+            <div class="loading-wave"></div>
+        </div>
+        <div class="loading-container">
+            <div class="loading-spinner">
+                <div class="loading-spinner-inner"></div>
+            </div>
+            <div>
+                <h2>Загрузка...</h2>
+                <div class="loading-dots">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+            </div>
+            <p>Подождите, идет инициализация приложения</p>
+        </div>
+    </div>
+
     <!-- Экран регистрации/авторизации -->
-    <div id="authScreen" class="screen active">
+    <div id="authScreen" class="screen">
         <div class="auth-container">
             <div class="logo">
                 <h1>Регистрация</h1>

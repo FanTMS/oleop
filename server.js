@@ -4039,7 +4039,6 @@ app.get('/api/reports', async (req, res) => {
             }
         }
 
-        const { status: statusParam } = req.query;
         let query = `
             SELECT r.*, 
                    u1.name as reporter_name,
@@ -4052,9 +4051,9 @@ app.get('/api/reports', async (req, res) => {
         `;
         const params = [];
 
-        if (statusParam) {
+        if (status) {
             query += ' WHERE r.status = ?';
-            params.push(statusParam);
+            params.push(status);
         }
 
         query += ' ORDER BY r.created_at DESC';

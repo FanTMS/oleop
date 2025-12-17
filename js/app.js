@@ -282,6 +282,18 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(style);
     
+    // Функция для скрытия загрузочного экрана
+    function hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.classList.remove('active');
+        }
+    }
+    
+    // Небольшая задержка для плавного перехода (минимум 500мс для показа загрузки)
+    const minLoadingTime = 500;
+    const startTime = Date.now();
+    
     const currentUser = Storage.getCurrentUser();
     
     if (currentUser) {
@@ -305,6 +317,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         timeLeft = 'менее часа';
                     }
                     
+                    // Ждем минимальное время загрузки
+                    const elapsed = Date.now() - startTime;
+                    const remainingTime = Math.max(0, minLoadingTime - elapsed);
+                    await new Promise(resolve => setTimeout(resolve, remainingTime));
+                    
+                    hideLoadingScreen();
+                    
                     alert(`Вы заблокированы!\n\nПричина: ${blockStatus.reason}\nБлокировка до: ${blockedUntil.toLocaleString('ru-RU')}\nОсталось: ${timeLeft}`);
                     Storage.clearCurrentUser();
                     import('./modules/auth.js').then(module => {
@@ -317,6 +336,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Ошибка проверки блокировки:', error);
             }
             
+            // Ждем минимальное время загрузки
+            const elapsed = Date.now() - startTime;
+            const remainingTime = Math.max(0, minLoadingTime - elapsed);
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+            
+            hideLoadingScreen();
             showMainApp();
             
             // Инициализируем WebSocket для поиска
@@ -355,10 +380,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     } else {
-        import('./modules/auth.js').then(module => {
-            module.showAuthScreen();
-            module.showStep(1);
-        });
+        // Ждем минимальное время загрузки
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsed);
+        
+        setTimeout(() => {
+            hideLoadingScreen();
+            // Показываем экран регистрации
+            import('./modules/auth.js').then(module => {
+                module.showAuthScreen();
+                module.showStep(1);
+            });
+        }, remainingTime);
     }
     
     // Инициализация интересов

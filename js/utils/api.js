@@ -2,6 +2,8 @@
  * Модуль для работы с API
  */
 
+import { Storage } from './storage.js';
+
 export const API_BASE_URL = window.location.origin;
 
 /**
@@ -153,7 +155,11 @@ export async function getStats() {
  * Получить всех пользователей (для админ-панели)
  */
 export async function getAllUsers() {
-    const data = await apiRequest('/admin/users');
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
+    const data = await apiRequest(`/admin/users?userId=${currentUser.id}`);
     return data.users;
 }
 
@@ -161,9 +167,13 @@ export async function getAllUsers() {
  * Обновить пользователя (для админ-панели)
  */
 export async function updateUser(userId, updates) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
     return await apiRequest(`/admin/users/${userId}`, {
         method: 'PUT',
-        body: updates
+        body: { ...updates, userId: currentUser.id }
     });
 }
 
@@ -171,8 +181,13 @@ export async function updateUser(userId, updates) {
  * Удалить пользователя (для админ-панели)
  */
 export async function deleteUser(userId) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
     return await apiRequest(`/admin/users/${userId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        body: { userId: currentUser.id }
     });
 }
 
@@ -190,7 +205,14 @@ export async function createReport(reporterId, reportedUserId, chatId, reason, d
  * Получить список жалоб
  */
 export async function getReports(status = null) {
-    const url = status ? `/reports?status=${status}` : '/reports';
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
+    let url = `/reports?userId=${currentUser.id}`;
+    if (status) {
+        url += `&status=${status}`;
+    }
     const data = await apiRequest(url);
     return data.reports;
 }
@@ -199,7 +221,11 @@ export async function getReports(status = null) {
  * Получить детали жалобы
  */
 export async function getReportDetails(reportId) {
-    const data = await apiRequest(`/reports/${reportId}`);
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
+    const data = await apiRequest(`/reports/${reportId}?userId=${currentUser.id}`);
     // Возвращаем весь объект данных, так как сервер возвращает { report: {...} }
     return data;
 }
@@ -208,9 +234,13 @@ export async function getReportDetails(reportId) {
  * Обработать жалобу
  */
 export async function resolveReport(reportId, verdict, message, blockDays) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
     return await apiRequest(`/reports/${reportId}/resolve`, {
         method: 'POST',
-        body: { verdict, message, blockDays }
+        body: { verdict, message, blockDays, userId: currentUser.id }
     });
 }
 
@@ -225,7 +255,11 @@ export async function checkUserBlockStatus(userId) {
  * Получить чаты администратора
  */
 export async function getAdminChats() {
-    const data = await apiRequest('/admin/chats');
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
+    const data = await apiRequest(`/admin/chats?userId=${currentUser.id}`);
     return data.chats;
 }
 
@@ -233,9 +267,13 @@ export async function getAdminChats() {
  * Отправить сообщение от администратора пользователю
  */
 export async function sendAdminMessage(userId, text) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
     return await apiRequest('/admin/send-message', {
         method: 'POST',
-        body: { userId, text }
+        body: { userId, text, adminUserId: currentUser.id }
     });
 }
 
@@ -243,9 +281,13 @@ export async function sendAdminMessage(userId, text) {
  * Массовая рассылка сообщений
  */
 export async function broadcastMessage(text, userIds = null) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        throw new Error('Пользователь не авторизован');
+    }
     return await apiRequest('/admin/broadcast', {
         method: 'POST',
-        body: { text, userIds }
+        body: { text, userIds, adminUserId: currentUser.id }
     });
 }
 
