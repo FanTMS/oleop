@@ -8,13 +8,6 @@ version: 1
 runtime:
   version: 20
 
-# Настройки сборки
-build:
-  # Команда сборки (установка зависимостей)
-  commands:
-    - npm ci --production=false
-    - npm rebuild sqlite3 --build-from-source
-
 # Настройки запуска
 run:
   # Имя скрипта из package.json
