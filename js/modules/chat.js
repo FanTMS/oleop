@@ -577,15 +577,6 @@ export async function loadChatMessages(chatId) {
 
         const readMessages = Storage.getReadMessages();
 
-        // Проверяем, есть ли приветственное сообщение с /start и добавляем кнопки
-        messages.forEach((message, index) => {
-            if (message.text && message.text.includes('Хомяк возвращается')) {
-                setTimeout(() => {
-                    showWelcomeButtonsForMessage(message.id);
-                }, 100 * (index + 1));
-            }
-        });
-
         // Загружаем информацию о подарках и ответах для сообщений
         for (const msg of messages) {
             const isOwn = msg.user_id === currentUser.id;
@@ -664,86 +655,6 @@ export async function loadChatMessages(chatId) {
 }
 
 /**
- * Обработка команды /start
- */
-async function handleStartCommand(chatId, currentUser) {
-    try {
-        // Создаем приветственное сообщение с кнопками
-        const welcomeMessage = `Хомяк возвращается! 🐹\n\nИгры, приложения — все это ждет тебя во вселенной Хомяка 🚀\n\nПереходи в HamsterVerse и получай награды за свою активность`;
-
-        // Отправляем приветственное сообщение
-        await Storage.saveChatMessage(chatId, currentUser.id, welcomeMessage);
-
-        // Перезагружаем сообщения
-        await loadChatMessages(chatId);
-
-        // Показываем кнопки после сообщения
-        // Находим ID последнего сообщения после перезагрузки
-        setTimeout(async () => {
-            const messages = await Storage.getChatMessages(chatId);
-            if (messages && messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                if (lastMessage && lastMessage.text && lastMessage.text.includes('Хомяк возвращается')) {
-                    showWelcomeButtonsForMessage(lastMessage.id);
-                }
-            }
-        }, 200);
-
-        hapticFeedback('success');
-    } catch (error) {
-        console.error('Ошибка обработки команды /start:', error);
-    }
-}
-
-/**
- * Показать кнопки приветственного сообщения для конкретного сообщения
- */
-function showWelcomeButtonsForMessage(messageId) {
-    const messagesContainer = document.getElementById('messagesContainer');
-    if (!messagesContainer) return;
-
-    const messageElement = messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
-    if (!messageElement) return;
-
-    // Проверяем, что это приветственное сообщение
-    const messageText = messageElement.querySelector('.message-text');
-    if (!messageText || !messageText.textContent.includes('Хомяк возвращается')) return;
-
-    // Проверяем, не добавлены ли уже кнопки
-    if (messageElement.querySelector('.welcome-buttons')) return;
-
-    // Создаем контейнер для кнопок
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.className = 'welcome-buttons';
-
-    // Получаем URL Mini App из Telegram WebApp
-    const tg = window.Telegram?.WebApp;
-    const miniAppUrl = tg?.initDataUnsafe?.start_param
-        ? `${window.location.origin}?start=${tg.initDataUnsafe.start_param}`
-        : window.location.origin;
-
-    // URL канала (можно настроить через переменную окружения)
-    const channelUrl = process.env.TELEGRAM_CHANNEL_URL || 'https://t.me/your_channel';
-
-    buttonsContainer.innerHTML = `
-        <a href="${miniAppUrl}" class="welcome-btn welcome-btn-primary" target="_blank" onclick="event.stopPropagation();">
-            <span>🐹</span>
-            <span>HamsterVerse</span>
-            <span>🐹</span>
-        </a>
-        <a href="${channelUrl}" class="welcome-btn welcome-btn-secondary" target="_blank" onclick="event.stopPropagation();">
-            Подписаться на официальный канал
-        </a>
-    `;
-
-    // Добавляем кнопки после текста сообщения
-    const messageBubble = messageElement.querySelector('.message-bubble');
-    if (messageBubble) {
-        messageBubble.appendChild(buttonsContainer);
-    }
-}
-
-/**
  * Отправка сообщения
  */
 export async function sendMessage() {
@@ -762,13 +673,6 @@ export async function sendMessage() {
 
     const chatId = Storage.getCurrentChat();
     if (!chatId) return;
-
-    // Обработка команды /start
-    if (text.toLowerCase() === '/start') {
-        await handleStartCommand(chatId, currentUser);
-        input.value = '';
-        return;
-    }
 
     // Проверяем, завершен ли чат
     const container = document.getElementById('messagesContainer');

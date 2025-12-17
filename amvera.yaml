@@ -28,12 +28,9 @@ run:
   # Монтирование для персистентных данных (база данных)
   persistenceMount: /data
 
-    # Переменные окружения (можно также настроить в панели управления)
-    env:
-      NODE_ENV: production
-      BOT_TOKEN: 8472658938:AAH7ss1oXrCZLzxz3ebcD7qBQAF7GPF2Gmk
-      MINI_APP_URL: https://oleop-fantms1.amvera.io
-      TELEGRAM_CHANNEL: "@your_channel"  # Замените на ваш канал
+# Переменные окружения (можно также настроить в панели управления)
+env:
+  NODE_ENV: production
   PORT: 3000
 
 # Исключения из архива (не загружаются на сервер)

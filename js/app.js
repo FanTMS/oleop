@@ -577,10 +577,6 @@ function setupGameListeners() {
                     module.rejectGameRequest();
                 });
                 break;
-            case 'play-mini-app':
-                e.preventDefault();
-                handlePlayMiniApp();
-                break;
             case 'admin-login':
                 e.preventDefault();
                 loginAdmin();
@@ -885,43 +881,4 @@ window.addEventListener('beforeunload', () => {
         Storage.removeOnlineUser(currentUser.id);
     }
 });
-
-/**
- * Обработка кнопки Play
- */
-function handlePlayMiniApp() {
-    import('./utils/telegram.js').then(({ hapticFeedback }) => {
-        hapticFeedback('success');
-    });
-    
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-        // Если мы уже в Mini App, просто показываем главную страницу
-        const activeChatScreen = document.getElementById('activeChatScreen');
-        
-        if (activeChatScreen && activeChatScreen.classList.contains('active')) {
-            // Если открыт чат, закрываем его
-            import('./modules/chat.js').then(module => {
-                module.closeActiveChat();
-            });
-        } else {
-            // Показываем главное приложение
-            import('./modules/navigation.js').then(module => {
-                module.showMainApp();
-            });
-        }
-        
-        // Начинаем поиск, если пользователь авторизован
-        const currentUser = Storage.getCurrentUser();
-        if (currentUser) {
-            import('./modules/search.js').then(module => {
-                module.startSearching();
-            });
-        }
-    } else {
-        // Если не в Telegram, открываем Mini App по ссылке
-        const miniAppUrl = process.env.MINI_APP_URL || window.location.origin;
-        window.open(miniAppUrl, '_blank');
-    }
-}
 
