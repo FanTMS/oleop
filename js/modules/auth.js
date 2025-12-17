@@ -62,17 +62,25 @@ export function getSelectedInterests() {
 }
 
 /**
- * Обновление индикатора шага
+ * Обновление визуализации прогресса регистрации
  */
-function updateStepIndicator(step) {
+function updateRegistrationProgress(step) {
+    // Обновляем полосу прогресса
+    const progressBarFill = document.getElementById('progressBarFill');
+    if (progressBarFill) {
+        const progressPercent = ((step - 1) / (REGISTRATION_STEPS - 1)) * 100;
+        progressBarFill.style.width = `${progressPercent}%`;
+    }
+    
+    // Обновляем индикаторы шагов
     for (let i = 1; i <= REGISTRATION_STEPS; i++) {
-        const indicator = document.querySelector(`.step-indicator[data-step="${i}"]`);
-        if (indicator) {
-            indicator.classList.remove('active', 'completed');
+        const stepDot = document.querySelector(`.progress-step-dot[data-step="${i}"]`);
+        if (stepDot) {
+            stepDot.classList.remove('active', 'completed');
             if (i < step) {
-                indicator.classList.add('completed');
+                stepDot.classList.add('completed');
             } else if (i === step) {
-                indicator.classList.add('active');
+                stepDot.classList.add('active');
             }
         }
     }
@@ -96,12 +104,14 @@ export function showStep(step) {
         stepEl.classList.add('active');
     }
     
+    // Обновляем визуализацию прогресса
+    updateRegistrationProgress(step);
+    
     // Инициализируем интересы при переходе на шаг 4
     if (step === 4) {
         initInterests();
     }
     
-    updateStepIndicator(step);
     clearError();
 }
 
