@@ -286,7 +286,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideLoadingScreen() {
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) {
+            console.log('Удаляем класс active и скрываем загрузочный экран');
             loadingScreen.classList.remove('active');
+            // Дополнительно скрываем через display для гарантии
+            loadingScreen.style.display = 'none';
+            loadingScreen.style.zIndex = '-1';
+            loadingScreen.style.visibility = 'hidden';
+            loadingScreen.style.opacity = '0';
+            loadingScreen.style.pointerEvents = 'none';
+        } else {
+            console.error('Элемент loadingScreen не найден!');
         }
     }
     
@@ -298,8 +307,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Функция для обработки после загрузки
     function handleAfterLoading() {
+        console.log('Загрузочный экран запущен, будет скрыт через 2 секунды');
+        
         // Ждем ровно 2 секунды с момента начала загрузки
         setTimeout(() => {
+            console.log('Скрываем загрузочный экран');
             hideLoadingScreen();
             
             if (currentUser) {
