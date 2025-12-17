@@ -2790,15 +2790,19 @@ body {
 }
 
 .profile-info-icon {
-    font-size: 24px;
+    font-size: 20px;
+    font-weight: 700;
     width: 48px;
     height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
     border-radius: 12px;
     flex-shrink: 0;
+    color: var(--primary-color);
+    text-transform: uppercase;
 }
 
 .profile-info-content {
@@ -2958,15 +2962,19 @@ body {
 }
 
 .profile-stat-icon {
-    font-size: 32px;
+    font-size: 24px;
+    font-weight: 700;
     width: 56px;
     height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
     border-radius: 14px;
     flex-shrink: 0;
+    color: var(--primary-color);
+    text-transform: uppercase;
 }
 
 .profile-stat-info {

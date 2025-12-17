@@ -441,6 +441,9 @@ async function initDatabase() {
         // Создание системного администратора
         await initSystemAdmin();
 
+        // Создание тестового пользователя для локальной разработки
+        await initTestUser();
+
         console.log('База данных инициализирована');
     } catch (error) {
         console.error('Ошибка инициализации базы данных:', error);
@@ -885,6 +888,38 @@ async function initSystemAdmin() {
         }
     } catch (error) {
         console.error('Ошибка создания системного администратора:', error);
+    }
+}
+
+// Инициализация тестового пользователя для локальной разработки
+async function initTestUser() {
+    try {
+        const TEST_TELEGRAM_ID = '123456789';
+        const testUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [TEST_TELEGRAM_ID]);
+
+        if (!testUser) {
+            const userId = uuidv4();
+            await dbRun(
+                `INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, admin_role, telegram_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    userId,
+                    'Тестовый пользователь',
+                    25,
+                    'male',
+                    JSON.stringify(['спорт', 'музыка', 'кино']),
+                    100,
+                    JSON.stringify({}),
+                    0,
+                    0,
+                    null,
+                    TEST_TELEGRAM_ID
+                ]
+            );
+            console.log('Тестовый пользователь создан (telegram_id: 123456789)');
+        }
+    } catch (error) {
+        console.error('Ошибка создания тестового пользователя:', error);
     }
 }
 

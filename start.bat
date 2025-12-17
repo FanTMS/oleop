@@ -45,6 +45,10 @@ if not exist "database.db" (
     echo.
 )
 
+echo [INFO] Тестовый пользователь будет создан автоматически при запуске сервера
+echo [INFO] Telegram ID тестового пользователя: 123456789
+echo.
+
 echo [INFO] Запуск сервера...
 echo [INFO] Сервер будет доступен по адресу: http://localhost:3000
 echo [INFO] Для остановки нажмите Ctrl+C

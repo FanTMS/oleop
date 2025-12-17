@@ -74,13 +74,31 @@ function initProfileTabs() {
 }
 
 /**
- * Загрузить информацию профиля
+ * Загрузить информацию профиля из базы данных
  */
 async function loadProfileInfo() {
     const currentUser = Storage.getCurrentUser();
     if (!currentUser) return;
     
     try {
+        // Загружаем актуальные данные пользователя из базы данных
+        const { getUser } = await import('../utils/api.js');
+        const userFromDB = await getUser(currentUser.id);
+        
+        // Обновляем данные пользователя в Storage
+        const updatedUser = {
+            ...currentUser,
+            name: userFromDB.name,
+            age: userFromDB.age,
+            gender: userFromDB.gender,
+            interests: userFromDB.interests || [],
+            coins: userFromDB.coins || 0,
+            rating_average: userFromDB.rating_average || 0,
+            rating_count: userFromDB.rating_count || 0
+        };
+        Storage.setCurrentUser(updatedUser);
+        
+        // Получаем рейтинг и чаты
         const rating = await Storage.getUserRating(currentUser.id);
         const chats = await Storage.getChatsForUser(currentUser.id);
         
@@ -88,42 +106,57 @@ async function loadProfileInfo() {
         const profileNameDisplay = document.getElementById('profileNameDisplay');
         const profileNameInput = document.getElementById('profileNameInput');
         if (profileNameDisplay) {
-            profileNameDisplay.textContent = currentUser.name;
+            profileNameDisplay.textContent = userFromDB.name;
         }
         if (profileNameInput) {
-            profileNameInput.value = currentUser.name;
+            profileNameInput.value = userFromDB.name;
         }
         
         // Обновляем аватар (первая буква имени)
         const profileAvatarInitial = document.getElementById('profileAvatarInitial');
         if (profileAvatarInitial) {
-            profileAvatarInitial.textContent = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+            profileAvatarInitial.textContent = userFromDB.name ? userFromDB.name.charAt(0).toUpperCase() : 'U';
         }
         
         // Старый элемент для совместимости
         const oldProfileName = document.getElementById('profileName');
         if (oldProfileName) {
-            oldProfileName.textContent = currentUser.name;
+            oldProfileName.textContent = userFromDB.name;
         }
-        document.getElementById('profileAge').textContent = `${currentUser.age} лет`;
-        document.getElementById('profileGender').textContent = GENDER_LABELS[currentUser.gender] || currentUser.gender;
         
+        // Обновляем возраст
+        const profileAgeEl = document.getElementById('profileAge');
+        if (profileAgeEl) {
+            profileAgeEl.textContent = `${userFromDB.age} лет`;
+        }
+        
+        // Обновляем пол
+        const profileGenderEl = document.getElementById('profileGender');
+        if (profileGenderEl) {
+            profileGenderEl.textContent = GENDER_LABELS[userFromDB.gender] || userFromDB.gender;
+        }
+        
+        // Обновляем рейтинг
         const ratingEl = document.getElementById('profileRating');
-        ratingEl.textContent = rating.count > 0 ? rating.average : 'Нет оценок';
+        if (ratingEl) {
+            ratingEl.textContent = rating.count > 0 ? rating.average : 'Нет оценок';
+        }
         
         const starsEl = document.getElementById('profileRatingStars');
-        if (rating.count > 0) {
-            const stars = Math.round(parseFloat(rating.average));
-            starsEl.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
-        } else {
-            starsEl.textContent = '';
+        if (starsEl) {
+            if (rating.count > 0) {
+                const stars = Math.round(parseFloat(rating.average));
+                starsEl.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+            } else {
+                starsEl.textContent = '';
+            }
         }
         
         // Обновляем интересы
         const interestsEl = document.getElementById('profileInterests');
         if (interestsEl) {
             interestsEl.innerHTML = '';
-            (currentUser.interests || []).forEach(interest => {
+            (userFromDB.interests || []).forEach(interest => {
                 const tag = document.createElement('span');
                 tag.className = 'interest-tag';
                 tag.textContent = interest;
@@ -131,13 +164,26 @@ async function loadProfileInfo() {
             });
         }
         
-        document.getElementById('statTotalChats').textContent = chats.length;
-        document.getElementById('statTotalRatings').textContent = rating.count;
+        // Обновляем статистику
+        const statTotalChatsEl = document.getElementById('statTotalChats');
+        if (statTotalChatsEl) {
+            statTotalChatsEl.textContent = chats.length;
+        }
+        
+        const statTotalRatingsEl = document.getElementById('statTotalRatings');
+        if (statTotalRatingsEl) {
+            statTotalRatingsEl.textContent = rating.count;
+        }
         
         // Загружаем бейдж пользователя
         await loadUserBadge(currentUser.id);
     } catch (error) {
-        console.error('Ошибка обновления экрана профиля:', error);
+        console.error('Ошибка загрузки информации профиля:', error);
+        // В случае ошибки используем данные из Storage
+        const profileNameDisplay = document.getElementById('profileNameDisplay');
+        if (profileNameDisplay && currentUser.name) {
+            profileNameDisplay.textContent = currentUser.name;
+        }
     }
 }
 
@@ -290,6 +336,107 @@ async function loadProfileQuests() {
     } catch (error) {
         console.error('Ошибка загрузки заданий:', error);
     }
+}
+
+/**
+ * Инициализация редактирования имени
+ */
+function initNameEditing() {
+    const editBtn = document.getElementById('profileEditNameBtn');
+    const nameDisplay = document.getElementById('profileNameDisplay');
+    const nameEdit = document.getElementById('profileNameEdit');
+    const nameInput = document.getElementById('profileNameInput');
+    const saveBtn = document.getElementById('profileSaveNameBtn');
+    const cancelBtn = document.getElementById('profileCancelNameBtn');
+    
+    if (!editBtn || !nameDisplay || !nameEdit || !nameInput || !saveBtn || !cancelBtn) {
+        return;
+    }
+    
+    editBtn.addEventListener('click', () => {
+        nameDisplay.style.display = 'none';
+        editBtn.style.display = 'none';
+        nameEdit.style.display = 'flex';
+        nameInput.focus();
+        nameInput.select();
+    });
+    
+    cancelBtn.addEventListener('click', () => {
+        const currentUser = Storage.getCurrentUser();
+        if (currentUser) {
+            nameInput.value = currentUser.name;
+        }
+        nameDisplay.style.display = 'block';
+        editBtn.style.display = 'flex';
+        nameEdit.style.display = 'none';
+    });
+    
+    saveBtn.addEventListener('click', async () => {
+        const newName = nameInput.value.trim();
+        const currentUser = Storage.getCurrentUser();
+        
+        if (!newName) {
+            alert('Имя не может быть пустым');
+            nameInput.focus();
+            return;
+        }
+        
+        if (newName === currentUser.name) {
+            nameDisplay.style.display = 'block';
+            editBtn.style.display = 'flex';
+            nameEdit.style.display = 'none';
+            return;
+        }
+        
+        if (newName.length > 50) {
+            alert('Имя не может быть длиннее 50 символов');
+            nameInput.focus();
+            return;
+        }
+        
+        try {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Сохранение...';
+            
+            const { updateUserName } = await import('../utils/api.js');
+            const response = await updateUserName(currentUser.id, newName);
+            
+            // Обновляем текущего пользователя
+            const updatedUser = {
+                ...currentUser,
+                name: response.user.name
+            };
+            Storage.setCurrentUser(updatedUser);
+            
+            // Перезагружаем данные профиля из базы данных
+            await loadProfileInfo();
+            
+            // Обновляем отображение
+            nameDisplay.style.display = 'block';
+            editBtn.style.display = 'flex';
+            nameEdit.style.display = 'none';
+            
+            // Обновляем превью профиля
+            await updateProfilePreview();
+            
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Сохранить';
+        } catch (error) {
+            console.error('Ошибка обновления имени:', error);
+            alert('Ошибка обновления имени: ' + (error.message || 'Неизвестная ошибка'));
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Сохранить';
+        }
+    });
+    
+    // Сохранение по Enter
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            saveBtn.click();
+        } else if (e.key === 'Escape') {
+            cancelBtn.click();
+        }
+    });
 }
 
 // Глобальная функция для получения награды за задание
