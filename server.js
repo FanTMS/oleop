@@ -13,6 +13,7 @@ import { existsSync } from 'fs';
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
+import TelegramBot from 'node-telegram-bot-api';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,6 +21,94 @@ const __dirname = dirname(__filename);
 const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// Инициализация Telegram бота
+const BOT_TOKEN = process.env.BOT_TOKEN || '8472658938:AAH7ss1oXrCZLzxz3ebcD7qBQAF7GPF2Gmk';
+const MINI_APP_URL = process.env.MINI_APP_URL || `https://oleop-fantms1.amvera.io`;
+const TELEGRAM_CHANNEL = process.env.TELEGRAM_CHANNEL || '@your_channel'; // Замените на ваш канал
+
+let bot = null;
+
+// Инициализация бота
+try {
+    // Используем polling для разработки, webhook для продакшена
+    const useWebhook = process.env.NODE_ENV === 'production' && process.env.WEBHOOK_URL;
+
+    if (useWebhook) {
+        // Webhook режим для продакшена
+        bot = new TelegramBot(BOT_TOKEN);
+        const webhookUrl = `${process.env.WEBHOOK_URL}/bot${BOT_TOKEN}`;
+        bot.setWebHook(webhookUrl).then(() => {
+            console.log(`Webhook установлен: ${webhookUrl}`);
+        }).catch(err => {
+            console.error('Ошибка установки webhook:', err);
+        });
+
+        // Обработка webhook запросов
+        app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+            bot.processUpdate(req.body);
+            res.sendStatus(200);
+        });
+    } else {
+        // Polling режим для разработки
+        bot = new TelegramBot(BOT_TOKEN, { polling: true });
+        console.log('Telegram бот запущен в режиме polling');
+    }
+
+    // Обработка команды /start
+    bot.onText(/\/start/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const username = msg.from.username || msg.from.first_name || 'Пользователь';
+
+        console.log(`Команда /start от пользователя ${userId} (@${username})`);
+
+        // Текст приветственного сообщения
+        const welcomeText = `Хомяк возвращается! 🐹\n\nИгры, приложения — все это ждет тебя во вселенной Хомяка 🚀\n\nПереходи в HamsterVerse и получай награды за свою активность`;
+
+        // Создаем inline клавиатуру с кнопками
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    {
+                        text: '🐹 HamsterVerse 🐹',
+                        web_app: { url: MINI_APP_URL }
+                    }
+                ],
+                [
+                    {
+                        text: 'Подписаться на официальный канал',
+                        url: `https://t.me/${TELEGRAM_CHANNEL.replace('@', '')}`
+                    }
+                ]
+            ]
+        };
+
+        try {
+            await bot.sendMessage(chatId, welcomeText, {
+                reply_markup: keyboard,
+                parse_mode: 'HTML'
+            });
+            console.log(`Приветственное сообщение отправлено пользователю ${userId}`);
+        } catch (error) {
+            console.error('Ошибка отправки сообщения боту:', error);
+        }
+    });
+
+    // Обработка ошибок бота
+    bot.on('error', (error) => {
+        console.error('Ошибка Telegram бота:', error);
+    });
+
+    // Обработка polling ошибок
+    bot.on('polling_error', (error) => {
+        console.error('Ошибка polling:', error);
+    });
+
+} catch (error) {
+    console.error('Ошибка инициализации Telegram бота:', error);
+    console.log('Бот будет работать без Telegram интеграции');
+}
 
 // Middleware
 app.use(cors());
@@ -4629,6 +4718,7 @@ app.get('/api/users/:id/block-status', async (req, res) => {
 server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
     console.log(`Откройте http://localhost:${PORT} в браузере`);
+    console.log(`Telegram бот: ${bot ? 'активен' : 'не инициализирован'}`);
 });
 
 // Закрытие базы данных при завершении
