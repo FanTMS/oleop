@@ -35,7 +35,7 @@ export async function loadChatsList() {
         // Разделяем чаты на активные и завершенные
         const activeChats = chats.filter(chat => !chat.is_completed);
         const completedChats = chats.filter(chat => chat.is_completed);
-        
+
         // Сортируем: чат с администратором всегда первый
         const ADMIN_ID = 'system_admin_001';
         activeChats.sort((a, b) => {
@@ -128,7 +128,7 @@ async function createChatItem(chat, currentUser, isCompleted = false) {
 
     const lastMessage = chat.lastMessage || null;
     const unreadCount = isCompleted ? 0 : Storage.getUnreadCount(chat.id);
-    
+
     // Проверяем, является ли это чатом с администратором
     const ADMIN_ID = 'system_admin_001';
     const isAdminChat = partnerId === ADMIN_ID || chat.user1_id === ADMIN_ID || chat.user2_id === ADMIN_ID;
@@ -146,7 +146,7 @@ async function createChatItem(chat, currentUser, isCompleted = false) {
     } else {
         formattedPartnerName = await formatUserName(partnerName, {}, partnerId);
     }
-    
+
     chatItem.innerHTML = `
         <div class="chat-item-info">
             <div class="chat-item-name">
@@ -241,7 +241,7 @@ export async function openChat(chatId, partnerData = null) {
         // Показываем экран активного чата
         if (activeChatScreen) {
             activeChatScreen.classList.add('active');
-            
+
             // Скрываем нижнюю навигацию на экране активного чата
             const bottomNav = document.querySelector('.bottom-nav');
             if (bottomNav) {
@@ -267,24 +267,24 @@ export async function openChat(chatId, partnerData = null) {
                 const partnerId = chat.user1_id === currentUser.id ? chat.user2_id : chat.user1_id;
                 const partnerName = chat.user1_id === currentUser.id ? chat.user2_name : chat.user1_name;
                 const partnerAge = chat.user1_id === currentUser.id ? chat.user2_age : chat.user1_age;
-                const partnerInterests = chat.user1_id === currentUser.id 
+                const partnerInterests = chat.user1_id === currentUser.id
                     ? (chat.user2_interests ? JSON.parse(chat.user2_interests) : [])
                     : (chat.user1_interests ? JSON.parse(chat.user1_interests) : []);
-                
+
                 // Проверяем, является ли это чатом с администратором
                 const ADMIN_ID = 'system_admin_001';
                 const isAdminChat = partnerId === ADMIN_ID || chat.user1_id === ADMIN_ID || chat.user2_id === ADMIN_ID;
 
                 // Применяем decorations к имени в заголовке чата
-                const partnerDecorations = chat.user1_id === currentUser.id 
+                const partnerDecorations = chat.user1_id === currentUser.id
                     ? (chat.user2_decorations ? JSON.parse(chat.user2_decorations) : {})
                     : (chat.user1_decorations ? JSON.parse(chat.user1_decorations) : {});
-                
+
                 const { formatUserName } = await import('../utils/decorations.js');
                 const formattedPartnerName = await formatUserName(partnerName, partnerDecorations, partnerId);
-                
+
                 document.getElementById('chatPartnerName').innerHTML = formattedPartnerName;
-                
+
                 // Формируем информацию о партнере с интересами
                 const chatPartnerInfo = document.getElementById('chatPartnerInfo');
                 if (isAdminChat) {
@@ -300,11 +300,11 @@ export async function openChat(chatId, partnerData = null) {
                     }
                     chatPartnerInfo.textContent = infoText;
                 }
-                
+
                 // Загружаем и отображаем статус партнера
                 if (!isAdminChat) {
                     await updatePartnerStatus(partnerId);
-                    
+
                     // Обновляем статус каждые 10 секунд для актуальности
                     const statusInterval = setInterval(async () => {
                         const currentChatId = Storage.getCurrentChat();
@@ -314,7 +314,7 @@ export async function openChat(chatId, partnerData = null) {
                             clearInterval(statusInterval);
                         }
                     }, 10000);
-                    
+
                     // Сохраняем interval для очистки при закрытии чата
                     window.chatStatusInterval = statusInterval;
                 }
@@ -327,7 +327,7 @@ export async function openChat(chatId, partnerData = null) {
 
                 isCompleted = chat.is_completed === true || chat.is_completed === 1;
                 console.log('Статус чата из API:', { is_completed: chat.is_completed, isCompleted, chatId, isAdminChat });
-                
+
                 // Применяем тему чата
                 await applyChatTheme(currentUser.id, partnerId);
             } else {
@@ -340,7 +340,7 @@ export async function openChat(chatId, partnerData = null) {
                     document.getElementById('chatPartnerInfo').textContent = 'Загрузка...';
                 }
                 console.log('Чат не найден в списке, используем данные партнера из WebSocket');
-                
+
                 // Пытаемся применить тему, если известен ID партнера
                 if (partnerData && partnerData.id) {
                     await applyChatTheme(currentUser.id, partnerData.id);
@@ -354,7 +354,7 @@ export async function openChat(chatId, partnerData = null) {
             if (partnerData) {
                 document.getElementById('chatPartnerName').textContent = partnerData.name || 'Собеседник';
                 document.getElementById('chatPartnerInfo').textContent = partnerData.age ? `${partnerData.age} лет` : 'Загрузка...';
-                
+
                 // Пытаемся применить тему, если известен ID партнера
                 if (partnerData.id) {
                     await applyChatTheme(currentUser.id, partnerData.id);
@@ -368,17 +368,17 @@ export async function openChat(chatId, partnerData = null) {
                 await applyChatTheme(currentUser.id, null);
             }
         }
-        
+
         // Загружаем сообщения (это также обновит информацию о завершенности)
         await loadChatMessages(chatId);
-        
+
         // Проверяем завершенность чата из контейнера сообщений (актуальные данные)
         const container = document.getElementById('messagesContainer');
         if (container && container.dataset.isCompleted === 'true') {
             isCompleted = true;
             console.log('Чат завершен по данным из сообщений');
         }
-        
+
         // Отмечаем сообщения как прочитанные при открытии чата
         await Storage.markMessagesAsRead(chatId);
         updateChatsBadge();
@@ -497,7 +497,7 @@ export function closeActiveChat() {
     if (gamesButton) {
         gamesButton.style.display = 'flex';
     }
-    
+
     // Очищаем интервал обновления статуса
     if (window.chatStatusInterval) {
         clearInterval(window.chatStatusInterval);
@@ -527,7 +527,7 @@ export function closeActiveChat() {
         mainApp.classList.add('active');
         console.log('Главное приложение показано');
     }
-    
+
     // Показываем нижнюю навигацию при возврате в главное приложение
     const bottomNav = document.querySelector('.bottom-nav');
     if (bottomNav) {
@@ -577,6 +577,15 @@ export async function loadChatMessages(chatId) {
 
         const readMessages = Storage.getReadMessages();
 
+        // Проверяем, есть ли приветственное сообщение с /start и добавляем кнопки
+        messages.forEach((message, index) => {
+            if (message.text && message.text.includes('Хомяк возвращается')) {
+                setTimeout(() => {
+                    showWelcomeButtonsForMessage(message.id);
+                }, 100 * (index + 1));
+            }
+        });
+
         // Загружаем информацию о подарках и ответах для сообщений
         for (const msg of messages) {
             const isOwn = msg.user_id === currentUser.id;
@@ -593,7 +602,7 @@ export async function loadChatMessages(chatId) {
                 reply_to: msg.reply_to,
                 gift_id: msg.gift_id
             };
-            
+
             // Если есть ответ, получаем информацию о сообщении-ответе
             if (msg.reply_to) {
                 const replyMsg = messages.find(m => m.id === msg.reply_to);
@@ -605,7 +614,7 @@ export async function loadChatMessages(chatId) {
                     };
                 }
             }
-            
+
             // Если есть подарок, получаем информацию о подарке
             if (msg.gift_id) {
                 try {
@@ -621,7 +630,7 @@ export async function loadChatMessages(chatId) {
                     console.error('Ошибка загрузки информации о подарке:', error);
                 }
             }
-            
+
             const messageEl = createMessageElement(messageData, isOwn);
             container.appendChild(messageEl);
         }
@@ -655,6 +664,86 @@ export async function loadChatMessages(chatId) {
 }
 
 /**
+ * Обработка команды /start
+ */
+async function handleStartCommand(chatId, currentUser) {
+    try {
+        // Создаем приветственное сообщение с кнопками
+        const welcomeMessage = `Хомяк возвращается! 🐹\n\nИгры, приложения — все это ждет тебя во вселенной Хомяка 🚀\n\nПереходи в HamsterVerse и получай награды за свою активность`;
+
+        // Отправляем приветственное сообщение
+        await Storage.saveChatMessage(chatId, currentUser.id, welcomeMessage);
+
+        // Перезагружаем сообщения
+        await loadChatMessages(chatId);
+
+        // Показываем кнопки после сообщения
+        // Находим ID последнего сообщения после перезагрузки
+        setTimeout(async () => {
+            const messages = await Storage.getChatMessages(chatId);
+            if (messages && messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                if (lastMessage && lastMessage.text && lastMessage.text.includes('Хомяк возвращается')) {
+                    showWelcomeButtonsForMessage(lastMessage.id);
+                }
+            }
+        }, 200);
+
+        hapticFeedback('success');
+    } catch (error) {
+        console.error('Ошибка обработки команды /start:', error);
+    }
+}
+
+/**
+ * Показать кнопки приветственного сообщения для конкретного сообщения
+ */
+function showWelcomeButtonsForMessage(messageId) {
+    const messagesContainer = document.getElementById('messagesContainer');
+    if (!messagesContainer) return;
+
+    const messageElement = messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageElement) return;
+
+    // Проверяем, что это приветственное сообщение
+    const messageText = messageElement.querySelector('.message-text');
+    if (!messageText || !messageText.textContent.includes('Хомяк возвращается')) return;
+
+    // Проверяем, не добавлены ли уже кнопки
+    if (messageElement.querySelector('.welcome-buttons')) return;
+
+    // Создаем контейнер для кнопок
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'welcome-buttons';
+
+    // Получаем URL Mini App из Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    const miniAppUrl = tg?.initDataUnsafe?.start_param
+        ? `${window.location.origin}?start=${tg.initDataUnsafe.start_param}`
+        : window.location.origin;
+
+    // URL канала (можно настроить через переменную окружения)
+    const channelUrl = process.env.TELEGRAM_CHANNEL_URL || 'https://t.me/your_channel';
+
+    buttonsContainer.innerHTML = `
+        <a href="${miniAppUrl}" class="welcome-btn welcome-btn-primary" target="_blank" onclick="event.stopPropagation();">
+            <span>🐹</span>
+            <span>HamsterVerse</span>
+            <span>🐹</span>
+        </a>
+        <a href="${channelUrl}" class="welcome-btn welcome-btn-secondary" target="_blank" onclick="event.stopPropagation();">
+            Подписаться на официальный канал
+        </a>
+    `;
+
+    // Добавляем кнопки после текста сообщения
+    const messageBubble = messageElement.querySelector('.message-bubble');
+    if (messageBubble) {
+        messageBubble.appendChild(buttonsContainer);
+    }
+}
+
+/**
  * Отправка сообщения
  */
 export async function sendMessage() {
@@ -673,6 +762,13 @@ export async function sendMessage() {
 
     const chatId = Storage.getCurrentChat();
     if (!chatId) return;
+
+    // Обработка команды /start
+    if (text.toLowerCase() === '/start') {
+        await handleStartCommand(chatId, currentUser);
+        input.value = '';
+        return;
+    }
 
     // Проверяем, завершен ли чат
     const container = document.getElementById('messagesContainer');
@@ -742,11 +838,11 @@ export function handleTyping() {
     if (!currentUser) return;
 
     const now = Date.now();
-    
+
     // Отправляем событие начала печати не чаще раза в 3 секунды
     if (now - lastTypingTime > 3000) {
         lastTypingTime = now;
-        
+
         import('./search.js').then(searchModule => {
             const wsClient = searchModule.getWebSocketClient();
             if (wsClient) {
@@ -828,23 +924,23 @@ export function handleTypingStop(chatId, userId) {
 export async function updatePartnerStatus(partnerId) {
     try {
         const { API_BASE_URL } = await import('../utils/api.js');
-        
+
         // Получаем статус и время последней активности одним запросом
         const response = await fetch(`${API_BASE_URL}/api/users/${partnerId}/status`);
         if (!response.ok) {
             throw new Error('Ошибка получения статуса');
         }
-        
+
         const data = await response.json();
         const status = data.status || 'offline';
         const lastSeen = data.last_seen || null;
-        
+
         const statusElement = document.getElementById('chatPartnerStatus');
         if (!statusElement) return;
-        
+
         const now = new Date();
         let statusText = '';
-        
+
         if (status === 'online') {
             statusText = 'онлайн';
             statusElement.className = 'chat-partner-status status-online';
@@ -862,7 +958,7 @@ export async function updatePartnerStatus(partnerId) {
                 const diffMins = Math.floor(diffMs / 60000);
                 const diffHours = Math.floor(diffMs / 3600000);
                 const diffDays = Math.floor(diffMs / 86400000);
-                
+
                 // Если прошло менее 5 минут, показываем "был(а) только что"
                 if (diffMins < 5) {
                     statusText = 'был(а) только что';
@@ -878,7 +974,7 @@ export async function updatePartnerStatus(partnerId) {
             }
             statusElement.className = 'chat-partner-status status-offline';
         }
-        
+
         statusElement.textContent = statusText;
     } catch (error) {
         console.error('Ошибка обновления статуса партнера:', error);
@@ -899,14 +995,14 @@ export async function endChat(skipRating = false) {
 
     const currentUser = Storage.getCurrentUser();
     if (!currentUser) return;
-    
+
     // Проверяем, является ли это чатом с администратором
     try {
         const chats = await Storage.getChatsForUser(currentUser.id);
         const chat = chats.find(c => c.id === chatId);
         const ADMIN_ID = 'system_admin_001';
         const isAdminChat = chat && (chat.user1_id === ADMIN_ID || chat.user2_id === ADMIN_ID);
-        
+
         if (isAdminChat) {
             alert('Чат с администратором нельзя завершить. Это ваш канал технической поддержки.');
             return;
@@ -914,7 +1010,7 @@ export async function endChat(skipRating = false) {
     } catch (error) {
         console.error('Ошибка проверки чата:', error);
     }
-    
+
     if (!skipRating && !confirm('Завершить этот чат? После завершения вы сможете оценить собеседника.')) {
         return;
     }
@@ -995,23 +1091,23 @@ export async function endChat(skipRating = false) {
 export async function showGiftModal() {
     const modal = document.getElementById('giftModal');
     if (!modal) return;
-    
+
     const currentUser = Storage.getCurrentUser();
     if (!currentUser) return;
-    
+
     try {
         // Получаем товары пользователя
         const response = await fetch(`${API_BASE_URL}/api/shop/user-items/${currentUser.id}`);
         if (!response.ok) throw new Error('Ошибка загрузки товаров');
-        
+
         const data = await response.json();
         const items = data.items || [];
-        
+
         const container = document.getElementById('giftItemsList');
         if (!container) return;
-        
+
         container.innerHTML = '';
-        
+
         if (items.length === 0) {
             container.style.display = 'flex';
             container.style.alignItems = 'center';
@@ -1021,65 +1117,65 @@ export async function showGiftModal() {
             modal.style.display = 'flex';
             return;
         }
-        
+
         // Сбрасываем стили контейнера для нормального отображения товаров
         container.style.display = '';
         container.style.alignItems = '';
         container.style.justifyContent = '';
         container.style.minHeight = '';
-        
+
         items.forEach(item => {
             const itemEl = document.createElement('div');
             itemEl.className = 'gift-item';
             // Используем item_id из базы данных или id из объекта
             const itemId = item.item_id || item.id;
-            
+
             if (!itemId) {
                 console.error('Товар без ID:', item);
                 return;
             }
-            
+
             // Устанавливаем data-атрибут правильно
             itemEl.setAttribute('data-item-id', itemId);
             itemEl.dataset.itemId = itemId;
-            
+
             console.log('Создан элемент подарка:', { itemId, name: item.name });
-            
+
             itemEl.innerHTML = `
                 <div class="gift-item-icon">${item.icon || '🎁'}</div>
                 <div class="gift-item-name">${item.name || 'Подарок'}</div>
             `;
-            
+
             itemEl.addEventListener('click', () => {
                 document.querySelectorAll('.gift-item').forEach(el => el.classList.remove('selected'));
                 itemEl.classList.add('selected');
                 const messageGroup = document.getElementById('giftMessageGroup');
                 if (messageGroup) messageGroup.style.display = 'block';
-                
+
                 console.log('Выбран подарок:', {
                     itemId: itemEl.dataset.itemId,
                     name: item.name,
                     element: itemEl
                 });
             });
-            
+
             container.appendChild(itemEl);
         });
-        
+
         modal.style.display = 'flex';
-        
+
         // Сбрасываем состояние кнопки отправки
         const sendButton = document.getElementById('sendGiftButton');
         if (sendButton) {
             sendButton.disabled = false;
             sendButton.textContent = 'Отправить';
         }
-        
+
         // Сбрасываем флаг отправки (если он существует в глобальной области)
         if (window.isSendingGift !== undefined) {
             window.isSendingGift = false;
         }
-        
+
         // Обработчик закрытия модального окна при клике вне его
         const closeOnOutsideClick = (e) => {
             if (e.target === modal) {
@@ -1139,15 +1235,15 @@ async function applyChatTheme(currentUserId, partnerId) {
  */
 async function getUserActiveChatTheme(userId) {
     if (!userId) return null;
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/users/${userId}/items`);
         const data = await response.json();
-        
+
         if (!data.items) return null;
 
         // Ищем активную тему чата
-        const chatTheme = data.items.find(item => 
+        const chatTheme = data.items.find(item =>
             item.item_type === 'chat_theme' && item.is_active === 1
         );
 

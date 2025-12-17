@@ -242,14 +242,16 @@
                                 <div class="profile-name-wrapper">
                                     <h2 class="profile-name-display" id="profileNameDisplay">-</h2>
                                     <button class="profile-edit-btn" id="profileEditNameBtn" title="Редактировать имя">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                     </button>
                                 </div>
                                 <div class="profile-name-edit" id="profileNameEdit" style="display: none;">
-                                    <input type="text" id="profileNameInput" class="profile-name-input" maxlength="50" placeholder="Введите имя">
+                                    <input type="text" id="profileNameInput" class="profile-name-input" maxlength="50"
+                                        placeholder="Введите имя">
                                     <div class="profile-name-actions">
                                         <button class="profile-save-btn" id="profileSaveNameBtn">Сохранить</button>
                                         <button class="profile-cancel-btn" id="profileCancelNameBtn">Отмена</button>
@@ -257,7 +259,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="profile-info-grid">
                             <div class="profile-info-card">
                                 <div class="profile-info-icon">A</div>
@@ -266,7 +268,7 @@
                                     <div class="profile-info-value" id="profileAge">-</div>
                                 </div>
                             </div>
-                            
+
                             <div class="profile-info-card">
                                 <div class="profile-info-icon">G</div>
                                 <div class="profile-info-content">
@@ -274,7 +276,7 @@
                                     <div class="profile-info-value" id="profileGender">-</div>
                                 </div>
                             </div>
-                            
+
                             <div class="profile-info-card">
                                 <div class="profile-info-icon">R</div>
                                 <div class="profile-info-content">
@@ -285,7 +287,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="profile-info-card">
                                 <div class="profile-info-icon">B</div>
                                 <div class="profile-info-content">
@@ -297,12 +299,12 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="profile-section-modern">
                             <h3 class="profile-section-title">Интересы</h3>
                             <div class="profile-interests-modern" id="profileInterests"></div>
                         </div>
-                        
+
                         <div class="profile-section-modern">
                             <h3 class="profile-section-title">Статистика</h3>
                             <div class="profile-stats-modern">
@@ -450,6 +452,12 @@
             </div>
 
             <div class="input-area">
+                <button class="btn btn-play" data-action="play-mini-app" title="Play">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5V19L19 12L8 5Z" fill="currentColor" />
+                    </svg>
+                    <span class="btn-play-text">Play</span>
+                </button>
                 <button class="btn btn-games" data-action="show-games-menu" title="Игры">
                     🎮
                 </button>
@@ -623,7 +631,8 @@
                 <button class="admin-nav-item" data-admin-screen="reports" data-action="show-admin-reports">
                     ⚠️ Жалобы
                 </button>
-                <button class="admin-nav-item" data-admin-screen="admins" data-action="show-admin-admins" id="adminAdminsNav" style="display: none;">
+                <button class="admin-nav-item" data-admin-screen="admins" data-action="show-admin-admins"
+                    id="adminAdminsNav" style="display: none;">
                     👑 Администраторы
                 </button>
                 <button class="admin-nav-item" data-admin-screen="bot" data-action="show-admin-bot">
@@ -678,7 +687,8 @@
         <div class="modal-content">
             <h3 id="gameRequestTitle">🎮 Предложение игры</h3>
             <p id="gameRequestText">Собеседник предлагает сыграть. Принять?</p>
-            <div id="gameRequestBetInfo" style="display: none; margin: 15px 0; padding: 12px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border: 2px solid rgba(255, 215, 0, 0.3);">
+            <div id="gameRequestBetInfo"
+                style="display: none; margin: 15px 0; padding: 12px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border: 2px solid rgba(255, 215, 0, 0.3);">
                 <strong>💰 Ставка:</strong> <span id="gameRequestBetAmount">0</span> монет
                 <br><small>Победитель получит удвоенную сумму, проигравший потеряет ставку</small>
             </div>
@@ -696,17 +706,24 @@
             <h3>🏷️ Создать именной бейдж</h3>
             <div class="form-group">
                 <label for="customBadgeText">Текст бейджа:</label>
-                <input type="text" id="customBadgeText" class="form-input" maxlength="20" placeholder="Введите текст бейджа (до 20 символов)">
+                <input type="text" id="customBadgeText" class="form-input" maxlength="20"
+                    placeholder="Введите текст бейджа (до 20 символов)">
             </div>
             <div class="form-group">
                 <label>Цвет бейджа:</label>
                 <div class="badge-color-picker">
-                    <button class="badge-color-btn" data-color="#4caf50" style="background: #4caf50;" title="Зеленый"></button>
-                    <button class="badge-color-btn" data-color="#ff9800" style="background: #ff9800;" title="Оранжевый"></button>
-                    <button class="badge-color-btn" data-color="#f44336" style="background: #f44336;" title="Красный"></button>
-                    <button class="badge-color-btn" data-color="#2196f3" style="background: #2196f3;" title="Синий"></button>
-                    <button class="badge-color-btn" data-color="#9c27b0" style="background: #9c27b0;" title="Фиолетовый"></button>
-                    <button class="badge-color-btn" data-color="#00bcd4" style="background: #00bcd4;" title="Голубой"></button>
+                    <button class="badge-color-btn" data-color="#4caf50" style="background: #4caf50;"
+                        title="Зеленый"></button>
+                    <button class="badge-color-btn" data-color="#ff9800" style="background: #ff9800;"
+                        title="Оранжевый"></button>
+                    <button class="badge-color-btn" data-color="#f44336" style="background: #f44336;"
+                        title="Красный"></button>
+                    <button class="badge-color-btn" data-color="#2196f3" style="background: #2196f3;"
+                        title="Синий"></button>
+                    <button class="badge-color-btn" data-color="#9c27b0" style="background: #9c27b0;"
+                        title="Фиолетовый"></button>
+                    <button class="badge-color-btn" data-color="#00bcd4" style="background: #00bcd4;"
+                        title="Голубой"></button>
                 </div>
             </div>
             <div class="modal-actions">
@@ -758,7 +775,8 @@
             </div>
             <div class="form-group" style="display: none;" id="giftMessageGroup">
                 <label for="giftMessage">Сообщение (необязательно):</label>
-                <textarea id="giftMessage" class="form-input" rows="3" maxlength="200" placeholder="Добавьте сообщение к подарку..."></textarea>
+                <textarea id="giftMessage" class="form-input" rows="3" maxlength="200"
+                    placeholder="Добавьте сообщение к подарку..."></textarea>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeGiftModal()">Отмена</button>
