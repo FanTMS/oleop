@@ -210,26 +210,41 @@ export async function handleRegister() {
     try {
         const { getTelegram } = await import('../utils/telegram.js');
         const tg = getTelegram();
+        console.log('[AUTH] Telegram WebApp объект:', tg);
+        console.log('[AUTH] initDataUnsafe:', tg?.initDataUnsafe);
+        console.log('[AUTH] user:', tg?.initDataUnsafe?.user);
+        
         if (tg?.initDataUnsafe?.user?.id) {
             telegram_id = tg.initDataUnsafe.user.id.toString();
+            console.log('[AUTH] ✓ Получен telegram_id:', telegram_id, '(тип:', typeof tg.initDataUnsafe.user.id, ')');
+        } else {
+            console.warn('[AUTH] ✗ telegram_id не найден в initDataUnsafe.user.id');
+            console.warn('[AUTH] Доступные поля user:', Object.keys(tg?.initDataUnsafe?.user || {}));
         }
     } catch (error) {
-        console.error('Ошибка получения telegram_id:', error);
+        console.error('[AUTH] Ошибка получения telegram_id:', error);
     }
     
     // Проверяем, что telegram_id получен
     if (!telegram_id) {
         alert('Ошибка: не удалось получить Telegram ID. Убедитесь, что вы открыли приложение через Telegram.');
-        console.error('Telegram ID не получен. Telegram WebApp:', window.Telegram?.WebApp);
+        console.error('[AUTH] Telegram ID не получен. Telegram WebApp:', window.Telegram?.WebApp);
+        console.error('[AUTH] initDataUnsafe:', window.Telegram?.WebApp?.initDataUnsafe);
         return;
     }
+    
+    // Нормализуем telegram_id (удаляем пробелы)
+    const normalizedTelegramId = String(telegram_id).trim().replace(/\s+/g, '');
+    console.log('[AUTH] Отправляем данные регистрации:');
+    console.log('[AUTH] - telegram_id (оригинал):', telegram_id);
+    console.log('[AUTH] - telegram_id (нормализованный):', normalizedTelegramId);
     
     const userData = {
         name,
         age,
         gender,
         interests,
-        telegram_id
+        telegram_id: normalizedTelegramId
     };
     
     try {

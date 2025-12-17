@@ -96,6 +96,15 @@ async function initDatabase() {
             // Поле уже существует, игнорируем ошибку
         }
 
+        // Создаем уникальный индекс на telegram_id (только для не-NULL значений)
+        // Это предотвратит создание дубликатов
+        try {
+            await dbExec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id) WHERE telegram_id IS NOT NULL`);
+        } catch (error) {
+            // Индекс уже существует или ошибка создания, логируем но продолжаем
+            console.log('Индекс на telegram_id:', error.message);
+        }
+
         // Таблица чатов
         await dbExec(`
             CREATE TABLE IF NOT EXISTS chats (
@@ -887,18 +896,18 @@ wss.on('connection', (ws, req) => {
 
             if (data.type === 'register') {
                 userId = data.userId;
-                
+
                 // Проверяем, существует ли пользователь в базе данных
                 const userExists = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
                 if (!userExists) {
                     console.error(`Пользователь ${userId} не найден в базе данных`);
-                    ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Пользователь не найден. Пожалуйста, зарегистрируйтесь сначала.' 
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Пользователь не найден. Пожалуйста, зарегистрируйтесь сначала.'
                     }));
                     return;
                 }
-                
+
                 activeConnections.set(userId, ws);
                 console.log(`Пользователь ${userId} подключен`);
 
@@ -913,7 +922,7 @@ wss.on('connection', (ws, req) => {
                             SELECT id, user1_id, user2_id FROM chats 
                             WHERE (user1_id = ? OR user2_id = ?) AND is_completed = 0
                         `, [userId, userId]);
-                        
+
                         // Отправляем обновление статуса всем партнерам в активных чатах
                         for (const chat of chats) {
                             const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
@@ -976,7 +985,7 @@ wss.on('connection', (ws, req) => {
         if (userId) {
             activeConnections.delete(userId);
             console.log(`Пользователь ${userId} отключен`);
-            
+
             try {
                 // Проверяем, существует ли пользователь перед обновлением статуса
                 const userExists = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
@@ -990,13 +999,13 @@ wss.on('connection', (ws, req) => {
                     console.warn(`Пользователь ${userId} не найден в базе данных при отключении`);
                     return;
                 }
-                
+
                 // Отправляем уведомление партнерам об изменении статуса
                 const chats = await dbAll(`
                     SELECT id, user1_id, user2_id FROM chats 
                     WHERE (user1_id = ? OR user2_id = ?) AND is_completed = 0
                 `, [userId, userId]);
-                
+
                 // Отправляем обновление статуса всем партнерам в активных чатах
                 for (const chat of chats) {
                     const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
@@ -1052,12 +1061,12 @@ async function handleGameRequestResponse(data) {
             // Проверяем балансы обоих игроков
             const user1 = await dbGet('SELECT coins FROM users WHERE id = ?', [fromUserId]);
             const user2 = await dbGet('SELECT coins FROM users WHERE id = ?', [toUserId]);
-            
+
             if (!user1 || !user2) {
                 console.error('Один из игроков не найден');
                 return;
             }
-            
+
             if ((user1.coins || 0) < betAmount) {
                 sendToUser(fromUserId, {
                     type: 'game_error',
@@ -1066,7 +1075,7 @@ async function handleGameRequestResponse(data) {
                 });
                 return;
             }
-            
+
             if ((user2.coins || 0) < betAmount) {
                 sendToUser(toUserId, {
                     type: 'game_error',
@@ -1075,11 +1084,11 @@ async function handleGameRequestResponse(data) {
                 });
                 return;
             }
-            
+
             // Списываем монеты у обоих игроков
             await dbRun('UPDATE users SET coins = coins - ? WHERE id = ?', [betAmount, fromUserId]);
             await dbRun('UPDATE users SET coins = coins - ? WHERE id = ?', [betAmount, toUserId]);
-            
+
             // Сохраняем информацию о ставке
             const gameId = `${chatId}_${gameType}`;
             gameBets[gameId] = {
@@ -1088,7 +1097,7 @@ async function handleGameRequestResponse(data) {
                 player1Id: fromUserId,
                 player2Id: toUserId
             };
-            
+
             console.log(`Ставка ${betAmount} монет зафиксирована для игры ${gameId}`);
         } catch (error) {
             console.error('Ошибка обработки ставки:', error);
@@ -1221,13 +1230,13 @@ async function handleRPSChoice(data) {
             // Проверяем, оба ли игрока сделали выбор
             if (game.player1Choice && game.player2Choice) {
                 const result = determineRPSWinner(game.player1Choice, game.player2Choice);
-                
+
                 // Обновляем прогресс заданий для обоих игроков
                 try {
                     for (const userId of [game.player1Id, game.player2Id]) {
                         await updateQuestProgressForUser(userId, 'play_games', 1);
                     }
-                    
+
                     // Обновляем прогресс для победителя
                     if (result.winner === 'player1') {
                         await updateQuestProgressForUser(game.player1Id, 'win_games', 1);
@@ -1237,7 +1246,7 @@ async function handleRPSChoice(data) {
                 } catch (error) {
                     console.error('Ошибка обновления прогресса заданий:', error);
                 }
-                
+
                 // Обрабатываем ставку если игра была на ставку
                 const gameId = `${chatId}_rps`;
                 const betInfo = gameBets[gameId];
@@ -1266,7 +1275,7 @@ async function handleRPSChoice(data) {
                     userResult.yourChoice = game.player1Id === userId ? game.player1Choice : game.player2Choice;
                     userResult.opponentChoice = game.player1Id === userId ? game.player2Choice : game.player1Choice;
                 }
-                
+
                 // Добавляем информацию о ставке в результат
                 if (betInfo && betInfo.isBet) {
                     userResult.isBet = true;
@@ -1301,7 +1310,7 @@ async function handleRPSChoice(data) {
                     partnerResult.yourChoice = game.player1Id === partnerId ? game.player1Choice : game.player2Choice;
                     partnerResult.opponentChoice = game.player1Id === partnerId ? game.player2Choice : game.player1Choice;
                 }
-                
+
                 // Добавляем информацию о ставке в результат
                 if (betInfo && betInfo.isBet) {
                     partnerResult.isBet = true;
@@ -1391,13 +1400,13 @@ async function handleTTTMove(data) {
         if (winner) {
             game.status = 'finished';
             game.winner = winner;
-            
+
             // Обновляем прогресс заданий для обоих игроков
             try {
                 for (const userId of [game.player1Id, game.player2Id]) {
                     await updateQuestProgressForUser(userId, 'play_games', 1);
                 }
-                
+
                 // Обновляем прогресс для победителя
                 if (winner !== 'draw') {
                     const winnerId = winner === game.player1Symbol ? game.player1Id : game.player2Id;
@@ -1406,7 +1415,7 @@ async function handleTTTMove(data) {
             } catch (error) {
                 console.error('Ошибка обновления прогресса заданий:', error);
             }
-            
+
             // Обрабатываем ставку если игра была на ставку
             const gameId = `${chatId}_ttt`;
             const betInfo = gameBets[gameId];
@@ -1452,7 +1461,7 @@ async function handleTTTMove(data) {
                 player2Symbol: game.player2Symbol,
                 message: winner === 'draw' ? 'Ничья!' : `Победил ${winnerName} (${winnerSymbol === 'X' ? 'крестик' : 'нолик'})!`
             };
-            
+
             // Добавляем информацию о ставке в результат
             if (betInfo && betInfo.isBet) {
                 resultData.isBet = true;
@@ -1517,10 +1526,10 @@ async function handleTTTMove(data) {
 async function processGameBet(gameId, result, player1Id, player2Id) {
     const betInfo = gameBets[gameId];
     if (!betInfo || !betInfo.isBet) return;
-    
+
     const betAmount = betInfo.betAmount;
     const winner = result.winner;
-    
+
     try {
         if (winner === 'draw') {
             // При ничьей возвращаем монеты обоим игрокам
@@ -1544,14 +1553,14 @@ async function processGameBet(gameId, result, player1Id, player2Id) {
 // Обработка индикатора печати (старый формат для совместимости)
 function handleTyping(data) {
     const { chatId, userId } = data;
-    
+
     // Получаем информацию о чате
     dbGet('SELECT user1_id, user2_id FROM chats WHERE id = ?', [chatId])
         .then(chat => {
             if (!chat) return;
-            
+
             const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
-            
+
             // Отправляем событие печати партнеру
             sendToUser(partnerId, {
                 type: 'typing',
@@ -1567,14 +1576,14 @@ function handleTyping(data) {
 // Обработка начала печати
 async function handleTypingStart(data) {
     const { chatId, userId } = data;
-    
+
     try {
         // Получаем информацию о чате
         const chat = await dbGet('SELECT user1_id, user2_id FROM chats WHERE id = ?', [chatId]);
         if (!chat) return;
-        
+
         const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
-        
+
         // Отправляем событие начала печати партнеру
         sendToUser(partnerId, {
             type: 'typing_start',
@@ -1589,14 +1598,14 @@ async function handleTypingStart(data) {
 // Остановка индикатора печати
 async function handleTypingStop(data) {
     const { chatId, userId } = data;
-    
+
     try {
         // Получаем информацию о чате
         const chat = await dbGet('SELECT user1_id, user2_id FROM chats WHERE id = ?', [chatId]);
         if (!chat) return;
-        
+
         const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
-        
+
         // Отправляем событие остановки печати партнеру
         sendToUser(partnerId, {
             type: 'typing_stop',
@@ -1611,7 +1620,7 @@ async function handleTypingStop(data) {
 // Обработка обновления статуса пользователя
 async function handleUserStatusUpdate(data) {
     const { userId, status } = data;
-    
+
     try {
         // Проверяем, существует ли пользователь
         const userExists = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
@@ -1619,19 +1628,19 @@ async function handleUserStatusUpdate(data) {
             console.error(`Пользователь ${userId} не найден при обновлении статуса`);
             return;
         }
-        
+
         // Обновляем статус в базе данных
         await dbRun(`
             INSERT OR REPLACE INTO user_statuses (user_id, status, last_seen)
             VALUES (?, ?, CURRENT_TIMESTAMP)
         `, [userId, status]);
-        
+
         // Получаем информацию о чатах пользователя для отправки обновления партнерам
         const chats = await dbAll(`
             SELECT id, user1_id, user2_id FROM chats 
             WHERE (user1_id = ? OR user2_id = ?) AND is_completed = 0
         `, [userId, userId]);
-        
+
         // Отправляем обновление статуса всем партнерам в активных чатах
         for (const chat of chats) {
             const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
@@ -1925,44 +1934,89 @@ app.post('/api/users/register', async (req, res) => {
             return res.status(400).json({ error: 'Telegram ID не получен. Убедитесь, что вы открыли приложение через Telegram.' });
         }
 
-        // Нормализуем telegram_id (приводим к строке для единообразия)
-        const normalizedTelegramId = String(telegram_id).trim();
-        if (!normalizedTelegramId) {
+        // Нормализуем telegram_id (приводим к строке для единообразия и удаляем все пробелы)
+        const normalizedTelegramId = String(telegram_id).trim().replace(/\s+/g, '');
+        if (!normalizedTelegramId || normalizedTelegramId === 'null' || normalizedTelegramId === 'undefined') {
             return res.status(400).json({ error: 'Некорректный Telegram ID' });
         }
 
-        console.log(`Попытка регистрации пользователя с telegram_id: ${normalizedTelegramId}`);
+        console.log(`[REGISTER] Попытка регистрации пользователя с telegram_id: "${normalizedTelegramId}" (тип: ${typeof telegram_id}, оригинал: "${telegram_id}")`);
 
         // Проверяем, является ли пользователь администратором по telegram_id
         const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
         let isAdmin = 0;
-        
-        if (ADMIN_TELEGRAM_ID && normalizedTelegramId === String(ADMIN_TELEGRAM_ID).trim()) {
+
+        if (ADMIN_TELEGRAM_ID && normalizedTelegramId === String(ADMIN_TELEGRAM_ID).trim().replace(/\s+/g, '')) {
             isAdmin = 1;
-            console.log(`Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как администратор`);
+            console.log(`[REGISTER] Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как администратор`);
         }
 
-        // Проверяем, не зарегистрирован ли уже пользователь с таким telegram_id
-        // Ищем по нормализованному telegram_id
-        const existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [normalizedTelegramId]);
-        
+        // СТРОГАЯ ПРОВЕРКА: Ищем пользователя по telegram_id несколькими способами
+        // 1. Точное совпадение нормализованного значения
+        let existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ? COLLATE NOCASE', [normalizedTelegramId]);
+
+        // 2. Если не нашли, пробуем найти по числовому значению (на случай если сохранено как число)
+        if (!existingUser && !isNaN(normalizedTelegramId)) {
+            existingUser = await dbGet('SELECT * FROM users WHERE CAST(telegram_id AS INTEGER) = ?', [parseInt(normalizedTelegramId)]);
+        }
+
+        // 3. Если все еще не нашли, пробуем найти по строковому представлению числа
+        if (!existingUser && !isNaN(normalizedTelegramId)) {
+            existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [parseInt(normalizedTelegramId).toString()]);
+        }
+
+        // Логируем результат поиска
+        if (existingUser) {
+            console.log(`[REGISTER] ✓ Найден существующий пользователь:`);
+            console.log(`  - telegram_id в БД: "${existingUser.telegram_id}"`);
+            console.log(`  - telegram_id запроса: "${normalizedTelegramId}"`);
+            console.log(`  - user_id: ${existingUser.id}`);
+        } else {
+            console.log(`[REGISTER] ✗ Пользователь с telegram_id "${normalizedTelegramId}" не найден, создаем нового`);
+        }
+
         let userId = null;
         if (existingUser) {
             // Обновляем существующего пользователя
             userId = existingUser.id;
-            console.log(`Найден существующий пользователь с telegram_id ${normalizedTelegramId}, ID: ${userId}. Обновляем данные.`);
+            console.log(`[REGISTER] Обновляем данные пользователя ID: ${userId}`);
+
+            // Убеждаемся, что telegram_id установлен правильно (на случай если был NULL)
             await dbRun(
-                'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ? WHERE id = ?',
-                [name, age, gender, JSON.stringify(interests), isAdmin, userId]
+                'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, telegram_id = ? WHERE id = ?',
+                [name, age, gender, JSON.stringify(interests), isAdmin, normalizedTelegramId, userId]
             );
         } else {
             // Если пользователь не найден, создаем нового
             userId = uuidv4();
-            console.log(`Создаем нового пользователя с telegram_id ${normalizedTelegramId}, ID: ${userId}`);
-            await dbRun(
-                'INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, telegram_id) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?)',
-                [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, normalizedTelegramId]
-            );
+            console.log(`[REGISTER] Создаем нового пользователя:`);
+            console.log(`  - user_id: ${userId}`);
+            console.log(`  - telegram_id: "${normalizedTelegramId}"`);
+
+            try {
+                await dbRun(
+                    'INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, telegram_id) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?)',
+                    [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, normalizedTelegramId]
+                );
+            } catch (insertError) {
+                // Если ошибка уникальности индекса, значит пользователь все-таки существует
+                if (insertError.message && insertError.message.includes('UNIQUE constraint')) {
+                    console.log(`[REGISTER] Обнаружен конфликт уникальности, ищем пользователя снова...`);
+                    existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ? COLLATE NOCASE', [normalizedTelegramId]);
+                    if (existingUser) {
+                        userId = existingUser.id;
+                        console.log(`[REGISTER] Найден пользователь после конфликта, ID: ${userId}`);
+                        await dbRun(
+                            'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, telegram_id = ? WHERE id = ?',
+                            [name, age, gender, JSON.stringify(interests), isAdmin, normalizedTelegramId, userId]
+                        );
+                    } else {
+                        throw insertError;
+                    }
+                } else {
+                    throw insertError;
+                }
+            }
         }
 
         const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
@@ -2003,6 +2057,36 @@ app.post('/api/users/register', async (req, res) => {
     } catch (error) {
         console.error('Ошибка регистрации:', error);
         res.status(500).json({ error: 'Ошибка регистрации' });
+    }
+});
+
+// Получить пользователя по telegram_id (для отладки)
+app.get('/api/users/by-telegram/:telegram_id', async (req, res) => {
+    try {
+        const telegramId = String(req.params.telegram_id).trim().replace(/\s+/g, '');
+
+        // Ищем несколькими способами
+        let user = await dbGet('SELECT * FROM users WHERE telegram_id = ? COLLATE NOCASE', [telegramId]);
+
+        if (!user && !isNaN(telegramId)) {
+            user = await dbGet('SELECT * FROM users WHERE CAST(telegram_id AS INTEGER) = ?', [parseInt(telegramId)]);
+        }
+
+        if (!user && !isNaN(telegramId)) {
+            user = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [parseInt(telegramId).toString()]);
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'Пользователь не найден', telegram_id: telegramId });
+        }
+
+        user.interests = JSON.parse(user.interests);
+        user.coins = user.coins || 0;
+        user.decorations = user.decorations ? JSON.parse(user.decorations) : {};
+        res.json({ user, searched_telegram_id: telegramId });
+    } catch (error) {
+        console.error('Ошибка получения пользователя по telegram_id:', error);
+        res.status(500).json({ error: 'Ошибка получения пользователя' });
     }
 });
 
@@ -2367,7 +2451,7 @@ app.post('/api/chats/:id/messages', async (req, res) => {
                     WHERE uq.user_id = ? AND uq.quest_id = q.id
                 )
             `, [uuidv4(), userId, userId]);
-            
+
             // Обновляем прогресс существующих заданий
             await dbRun(`
                 UPDATE user_quests 
@@ -2382,7 +2466,7 @@ app.post('/api/chats/:id/messages', async (req, res) => {
                     SELECT target_value FROM quests WHERE id = user_quests.quest_id
                 )
             `, [userId]);
-            
+
             // Проверяем завершение заданий
             const completedQuests = await dbAll(`
                 SELECT uq.id, uq.quest_id, q.target_value, uq.progress
@@ -2394,7 +2478,7 @@ app.post('/api/chats/:id/messages', async (req, res) => {
                 AND uq.completed = 0
                 AND uq.progress >= q.target_value
             `, [userId]);
-            
+
             for (const quest of completedQuests) {
                 await dbRun(
                     'UPDATE user_quests SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -2478,7 +2562,7 @@ app.post('/api/daily-bonus/check', async (req, res) => {
         }
 
         const today = new Date().toISOString().split('T')[0];
-        
+
         // Проверяем, получал ли пользователь бонус сегодня
         const existingBonus = await dbGet(
             'SELECT * FROM daily_bonuses WHERE user_id = ? AND bonus_date = ?',
@@ -2504,7 +2588,7 @@ app.post('/api/daily-bonus/check', async (req, res) => {
             const lastDate = new Date(lastBonus.bonus_date);
             const todayDate = new Date(today);
             const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
-            
+
             if (diffDays === 1) {
                 // Продолжение серии
                 streakDays = lastBonus.streak_days + 1;
@@ -2590,7 +2674,7 @@ app.get('/api/quests', async (req, res) => {
 app.get('/api/quests/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const userQuests = await dbAll(`
             SELECT q.*, uq.progress, uq.completed, uq.completed_at
             FROM quests q
@@ -2663,14 +2747,14 @@ async function updateQuestProgressForUser(userId, questType, value = 1) {
     try {
         // Находим задания соответствующего типа
         const quests = await dbAll('SELECT * FROM quests WHERE quest_type = ? AND is_active = 1', [questType]);
-        
+
         for (const quest of quests) {
             // Получаем или создаем запись прогресса
             let userQuest = await dbGet(
                 'SELECT * FROM user_quests WHERE user_id = ? AND quest_id = ?',
                 [userId, quest.id]
             );
-            
+
             if (!userQuest) {
                 const userQuestId = uuidv4();
                 const initialProgress = Math.min(value, quest.target_value);
@@ -2688,7 +2772,7 @@ async function updateQuestProgressForUser(userId, questType, value = 1) {
                 );
                 userQuest.progress = newProgress;
             }
-            
+
             // Проверяем, выполнено ли задание
             if (userQuest.progress >= quest.target_value && userQuest.completed === 0) {
                 await dbRun(
@@ -2747,7 +2831,7 @@ app.get('/api/badges', async (req, res) => {
 app.get('/api/badges/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const badges = await dbAll(`
             SELECT b.*, ub.is_active, ub.unlocked_at
             FROM badges b
@@ -2784,38 +2868,38 @@ app.post('/api/users/:userId/custom-badge', async (req, res) => {
     try {
         const { userId } = req.params;
         const { badge_text, badge_color } = req.body;
-        
+
         if (!badge_text || badge_text.trim().length === 0) {
             return res.status(400).json({ error: 'Текст бейджа не может быть пустым' });
         }
-        
+
         if (badge_text.length > 20) {
             return res.status(400).json({ error: 'Текст бейджа не должен превышать 20 символов' });
         }
-        
+
         // Проверяем, что пользователь купил товар "Именной бейдж"
         const userItem = await dbGet(
             'SELECT * FROM user_items WHERE user_id = ? AND item_id = ?',
             [userId, 'custom_badge']
         );
-        
+
         if (!userItem) {
             return res.status(400).json({ error: 'Сначала нужно купить товар "Именной бейдж" в магазине' });
         }
-        
+
         // Деактивируем старый бейдж если есть
         await dbRun(
             'UPDATE custom_badges SET is_active = 0 WHERE user_id = ?',
             [userId]
         );
-        
+
         // Создаем новый бейдж
         const badgeId = uuidv4();
         await dbRun(
             'INSERT INTO custom_badges (id, user_id, badge_text, badge_color, is_active) VALUES (?, ?, ?, ?, ?)',
             [badgeId, userId, badge_text.trim(), badge_color || '#4caf50', 1]
         );
-        
+
         res.json({ success: true, badge: { id: badgeId, badge_text, badge_color } });
     } catch (error) {
         console.error('Ошибка создания именного бейджа:', error);
@@ -2827,7 +2911,7 @@ app.post('/api/users/:userId/custom-badge', async (req, res) => {
 app.get('/api/badges/user/:userId/active-title', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const title = await dbGet(`
             SELECT b.* FROM badges b
             JOIN user_badges ub ON b.id = ub.badge_id
@@ -2928,7 +3012,7 @@ app.post('/api/users/:userId/status', async (req, res) => {
 app.get('/api/users/:userId/status', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const status = await dbGet(
             'SELECT * FROM user_statuses WHERE user_id = ?',
             [userId]
@@ -2948,7 +3032,7 @@ app.get('/api/users/:userId/status', async (req, res) => {
 app.get('/api/users/:userId/activity', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const activity = await dbAll(
             'SELECT * FROM user_activity WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
             [userId]
@@ -2965,7 +3049,7 @@ app.get('/api/users/:userId/activity', async (req, res) => {
 app.get('/api/users/:userId/last-seen', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const lastSeen = await dbGet(
             'SELECT last_seen FROM user_statuses WHERE user_id = ?',
             [userId]
@@ -3039,7 +3123,7 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
             [fromUserId, itemId]
         );
         console.log('Товар удален из коллекции отправителя:', { fromUserId, itemId });
-        
+
         // Обновляем decorations отправителя после удаления товара
         const senderActiveItems = await dbAll(`
             SELECT si.item_type, si.item_value
@@ -3047,7 +3131,7 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
             JOIN shop_items si ON ui.item_id = si.id
             WHERE ui.user_id = ? AND ui.is_active = 1
         `, [fromUserId]);
-        
+
         const senderDecorations = {};
         senderActiveItems.forEach(item => {
             if (!senderDecorations[item.item_type]) {
@@ -3055,7 +3139,7 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
             }
             senderDecorations[item.item_type].push(item.item_value);
         });
-        
+
         await dbRun(
             'UPDATE users SET decorations = ? WHERE id = ?',
             [JSON.stringify(senderDecorations), fromUserId]
@@ -3067,7 +3151,7 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
             'SELECT * FROM user_items WHERE user_id = ? AND item_id = ?',
             [toUserId, itemId]
         );
-        
+
         if (!existingItem) {
             const newUserItemId = uuidv4();
             await dbRun(
@@ -3108,9 +3192,9 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
     } catch (error) {
         console.error('Ошибка отправки подарка:', error);
         console.error('Стек ошибки:', error.stack);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Ошибка отправки подарка',
-            details: error.message 
+            details: error.message
         });
     }
 });
@@ -3119,7 +3203,7 @@ app.post('/api/chats/:chatId/gifts', async (req, res) => {
 app.get('/api/chats/:chatId/gifts/:giftId', async (req, res) => {
     try {
         const { giftId } = req.params;
-        
+
         const gift = await dbGet(`
             SELECT cg.*, si.name, si.icon, si.description, si.rarity
             FROM chat_gifts cg
@@ -3477,7 +3561,7 @@ app.get('/api/shop/items', async (req, res) => {
 app.get('/api/shop/user-items/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const items = await dbAll(`
             SELECT ui.*, si.name, si.icon, si.description, si.rarity, si.item_type, si.item_value
             FROM user_items ui
@@ -3485,7 +3569,7 @@ app.get('/api/shop/user-items/:userId', async (req, res) => {
             WHERE ui.user_id = ?
             ORDER BY ui.purchased_at DESC
         `, [userId]);
-        
+
         res.json({ items });
     } catch (error) {
         console.error('Ошибка получения товаров пользователя:', error);
@@ -3515,7 +3599,7 @@ app.get('/api/users/:id/items', async (req, res) => {
 app.get('/api/shop/user-items/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         const items = await dbAll(`
             SELECT ui.*, si.name, si.icon, si.description, si.rarity, si.item_type, si.item_value
             FROM user_items ui
@@ -3523,7 +3607,7 @@ app.get('/api/shop/user-items/:userId', async (req, res) => {
             WHERE ui.user_id = ?
             ORDER BY ui.purchased_at DESC
         `, [userId]);
-        
+
         res.json({ items });
     } catch (error) {
         console.error('Ошибка получения товаров пользователя:', error);
