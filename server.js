@@ -30,6 +30,8 @@ app.use(express.static(__dirname));
 // Инициализация Telegram бота
 let bot = null;
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const BOT_USERNAME = process.env.BOT_USERNAME || 'oleopa_bot';
+const APP_NAME = process.env.APP_NAME || 'oleop';
 const MINI_APP_URL = process.env.MINI_APP_URL || 'https://your-mini-app-url.com';
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@your_channel';
 
@@ -4308,6 +4310,32 @@ app.post('/api/reports/:id/resolve', async (req, res) => {
     } catch (error) {
         console.error('Ошибка обработки жалобы:', error);
         res.status(500).json({ error: 'Ошибка обработки жалобы' });
+    }
+});
+
+// API: Получить настройки бота (для реферальных ссылок)
+app.get('/api/admin/bot-config', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора.' });
+        }
+
+        res.json({
+            botUsername: BOT_USERNAME,
+            appName: APP_NAME,
+            miniAppUrl: MINI_APP_URL,
+            miniAppLink: `https://t.me/${BOT_USERNAME}/${APP_NAME}`,
+            startLink: `https://t.me/${BOT_USERNAME}/start`
+        });
+    } catch (error) {
+        console.error('Ошибка получения настроек бота:', error);
+        res.status(500).json({ error: 'Ошибка получения настроек бота' });
     }
 });
 

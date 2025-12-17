@@ -35,10 +35,10 @@ export async function loginAdmin() {
 
     document.getElementById('adminLogin').style.display = 'none';
     document.querySelector('.admin-panel').style.display = 'block';
-    
+
     // Проверяем права доступа и обновляем видимость элементов
     await updateAdminNavVisibility();
-    
+
     showAdminStats();
     hapticFeedback('success');
 }
@@ -58,7 +58,7 @@ async function updateAdminNavVisibility() {
         if (response.ok) {
             const data = await response.json();
             const user = data.user;
-            
+
             // Показываем кнопку управления администраторами только для супер-администратора
             const adminAdminsNav = document.getElementById('adminAdminsNav');
             if (adminAdminsNav) {
@@ -97,6 +97,35 @@ export async function showAdminStats() {
     try {
         const { getStats } = await import('../utils/api.js');
         const stats = await getStats();
+
+        // Получаем настройки для реферальной ссылки
+        let botConfig = {
+            botUsername: 'oleopa_bot',
+            appName: 'oleop',
+            miniAppLink: 'https://t.me/oleopa_bot/oleop',
+            startLink: 'https://t.me/oleopa_bot/start'
+        };
+
+        try {
+            const currentUser = Storage.getCurrentUser();
+            if (currentUser && currentUser.id) {
+                const configResponse = await fetch(`${window.location.origin}/api/admin/bot-config?userId=${currentUser.id}`);
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    botConfig = {
+                        botUsername: configData.botUsername || 'oleopa_bot',
+                        appName: configData.appName || 'oleop',
+                        miniAppLink: configData.miniAppLink || `https://t.me/${configData.botUsername || 'oleopa_bot'}/${configData.appName || 'oleop'}`,
+                        startLink: configData.startLink || `https://t.me/${configData.botUsername || 'oleopa_bot'}/start`
+                    };
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки настроек бота, используем значения по умолчанию:', error);
+        }
+
+        const miniAppLink = botConfig.miniAppLink;
+        const startLink = botConfig.startLink;
 
         content.innerHTML = `
             <div class="admin-stats-grid">
@@ -147,6 +176,39 @@ export async function showAdminStats() {
                     <div class="admin-stat-info">
                         <div class="admin-stat-value">${stats.totalMessages || 0}</div>
                         <div class="admin-stat-label">Всего сообщений</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="admin-referral-section" style="margin-top: 32px; padding: 24px; background: rgba(139, 92, 246, 0.1); border-radius: 16px; border: 2px solid rgba(139, 92, 246, 0.3);">
+                <h3 style="margin: 0 0 16px 0; color: var(--text-color);">🔗 Реферальная ссылка Mini-App</h3>
+                <p style="margin: 0 0 16px 0; color: var(--text-secondary); font-size: 14px;">
+                    Используйте эту ссылку для открытия mini-app напрямую в Telegram
+                </p>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">Ссылка на Mini-App:</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="miniAppLinkInput" readonly 
+                                value="${miniAppLink}" 
+                                style="flex: 1; padding: 12px 16px; border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 8px; background: rgba(255, 255, 255, 0.9); font-size: 14px; color: var(--text-color);" />
+                            <button class="btn btn-primary" data-action="copy-mini-app-link" style="white-space: nowrap;">
+                                📋 Копировать
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">Ссылка с командой /start:</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="startLinkInput" readonly 
+                                value="${startLink}" 
+                                style="flex: 1; padding: 12px 16px; border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 8px; background: rgba(255, 255, 255, 0.9); font-size: 14px; color: var(--text-color);" />
+                            <button class="btn btn-primary" data-action="copy-start-link" style="white-space: nowrap;">
+                                📋 Копировать
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -224,7 +286,7 @@ export async function showAdminChats() {
 
     try {
         const chats = await getAdminChats();
-        
+
         if (chats.length === 0) {
             content.innerHTML = '<div class="admin-empty">Нет чатов с пользователями</div>';
             return;
@@ -240,8 +302,8 @@ export async function showAdminChats() {
                 </div>
                 <div class="admin-chats-list">
                     ${chats.map(chat => {
-                        const unreadCount = chat.lastMessage && chat.lastMessage.user_id !== 'system_admin_001' ? 1 : 0;
-                        return `
+            const unreadCount = chat.lastMessage && chat.lastMessage.user_id !== 'system_admin_001' ? 1 : 0;
+            return `
                             <div class="admin-chat-item ${unreadCount > 0 ? 'admin-chat-item-unread' : ''}" data-chat-id="${chat.id}" data-user-id="${chat.partner_id}">
                                 <div class="admin-chat-avatar">${chat.partner_name.charAt(0).toUpperCase()}</div>
                                 <div class="admin-chat-info">
@@ -262,7 +324,7 @@ export async function showAdminChats() {
                                 </button>
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
@@ -365,17 +427,17 @@ export async function showReportDetails(reportId) {
 
     try {
         const reportData = await getReportDetails(reportId);
-        
+
         console.log('Данные жалобы получены:', reportData);
-        
+
         // Проверяем структуру ответа - может быть reportData.report или просто reportData
         let report = reportData.report || reportData;
-        
+
         if (!report) {
             console.error('Структура данных:', reportData);
             throw new Error('Данные жалобы не найдены');
         }
-        
+
         const stats = report.reported_user_stats || {
             rating_average: report.rating_average || 0,
             rating_count: report.rating_count || 0,
@@ -543,7 +605,7 @@ export async function showAdminAdmins() {
 
     const content = document.getElementById('adminContent');
     const currentUser = Storage.getCurrentUser();
-    
+
     if (!currentUser || !currentUser.id) {
         content.innerHTML = '<div class="admin-error">Ошибка: не удалось получить данные пользователя</div>';
         return;
@@ -774,6 +836,58 @@ function setupAdminActions() {
                     hapticFeedback('medium');
                 }
                 break;
+            case 'copy-mini-app-link':
+                e.preventDefault();
+                const miniAppLinkInput = document.getElementById('miniAppLinkInput');
+                if (miniAppLinkInput) {
+                    const text = miniAppLinkInput.value;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            alert('Ссылка скопирована в буфер обмена!');
+                            hapticFeedback('success');
+                        }).catch(err => {
+                            console.error('Ошибка копирования:', err);
+                            // Fallback для старых браузеров
+                            miniAppLinkInput.select();
+                            document.execCommand('copy');
+                            alert('Ссылка скопирована в буфер обмена!');
+                            hapticFeedback('success');
+                        });
+                    } else {
+                        // Fallback для старых браузеров
+                        miniAppLinkInput.select();
+                        document.execCommand('copy');
+                        alert('Ссылка скопирована в буфер обмена!');
+                        hapticFeedback('success');
+                    }
+                }
+                break;
+            case 'copy-start-link':
+                e.preventDefault();
+                const startLinkInput = document.getElementById('startLinkInput');
+                if (startLinkInput) {
+                    const text = startLinkInput.value;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            alert('Ссылка скопирована в буфер обмена!');
+                            hapticFeedback('success');
+                        }).catch(err => {
+                            console.error('Ошибка копирования:', err);
+                            // Fallback для старых браузеров
+                            startLinkInput.select();
+                            document.execCommand('copy');
+                            alert('Ссылка скопирована в буфер обмена!');
+                            hapticFeedback('success');
+                        });
+                    } else {
+                        // Fallback для старых браузеров
+                        startLinkInput.select();
+                        document.execCommand('copy');
+                        alert('Ссылка скопирована в буфер обмена!');
+                        hapticFeedback('success');
+                    }
+                }
+                break;
             case 'show-admin-reports':
                 e.preventDefault();
                 showAdminReports();
@@ -875,14 +989,14 @@ function setupAdminActions() {
                 e.preventDefault();
                 const sendButton = e.target.closest('[data-action="send-admin-message"]');
                 if (sendButton && sendButton.disabled) return; // Предотвращаем повторную отправку
-                
+
                 const messageText = document.getElementById('adminMessageInput')?.value.trim();
                 const chatWindow = document.getElementById('adminChatWindow');
                 const targetUserId = chatWindow?.dataset.userId;
                 if (messageText && targetUserId) {
                     // Блокируем кнопку отправки
                     if (sendButton) sendButton.disabled = true;
-                    
+
                     sendAdminMessage(targetUserId, messageText).then(() => {
                         const input = document.getElementById('adminMessageInput');
                         if (input) input.value = '';
@@ -943,7 +1057,7 @@ async function showEditUserModal(userId) {
     try {
         const users = await getAllUsersAPI();
         const user = users.find(u => u.id === userId);
-        
+
         if (!user) {
             alert('Пользователь не найден');
             return;
@@ -979,46 +1093,46 @@ async function showEditUserModal(userId) {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
-        
+
         // Обработчик сохранения изменений
         const saveBtn = modal.querySelector('[data-action="save-user-changes"]');
         if (saveBtn) {
             saveBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const rating = parseFloat(document.getElementById('editUserRating').value) || 0;
                 const ratingCount = parseInt(document.getElementById('editUserRatingCount').value) || 0;
                 const coins = parseInt(document.getElementById('editUserCoins').value) || 0;
-                
+
                 // Валидация
                 if (rating < 0 || rating > 5) {
                     alert('Рейтинг должен быть от 0 до 5');
                     return;
                 }
-                
+
                 if (ratingCount < 0) {
                     alert('Количество оценок не может быть отрицательным');
                     return;
                 }
-                
+
                 if (coins < 0) {
                     alert('Количество монет не может быть отрицательным');
                     return;
                 }
-                
+
                 // Блокируем кнопку во время сохранения
                 saveBtn.disabled = true;
                 const originalText = saveBtn.textContent;
                 saveBtn.textContent = 'Сохранение...';
-                
+
                 try {
-                    await updateUser(userId, { 
-                        rating_average: rating, 
-                        rating_count: ratingCount, 
-                        coins: coins 
+                    await updateUser(userId, {
+                        rating_average: rating,
+                        rating_count: ratingCount,
+                        coins: coins
                     });
                     modal.remove();
                     await showAdminUsers();
@@ -1033,7 +1147,7 @@ async function showEditUserModal(userId) {
                 }
             });
         }
-        
+
         // Обработчик закрытия модального окна
         const closeBtn = modal.querySelector('[data-action="close-edit-user-modal"]');
         if (closeBtn) {
@@ -1043,14 +1157,14 @@ async function showEditUserModal(userId) {
                 modal.remove();
             });
         }
-        
+
         // Закрытие при клике на фон
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
         // Закрытие по Escape
         const handleEscape = (e) => {
             if (e.key === 'Escape' && modal.parentNode) {
@@ -1071,17 +1185,17 @@ async function showEditUserModal(userId) {
 async function showAdminChatWindow(chatId, userId) {
     currentAdminChatId = chatId;
     currentAdminUserId = userId;
-    
+
     let chatWindow = document.getElementById('adminChatWindow');
     if (!chatWindow) {
         createAdminChatWindow();
         chatWindow = document.getElementById('adminChatWindow');
     }
-    
+
     if (chatWindow) {
         chatWindow.dataset.chatId = chatId;
         chatWindow.dataset.userId = userId;
-        
+
         // Получаем имя пользователя для заголовка
         try {
             const API = await import('../utils/api.js');
@@ -1093,10 +1207,10 @@ async function showAdminChatWindow(chatId, userId) {
         } catch (error) {
             console.error('Ошибка получения пользователя:', error);
         }
-        
+
         chatWindow.classList.add('active');
     }
-    
+
     await loadAdminChatMessages(chatId);
 }
 
@@ -1108,17 +1222,17 @@ async function loadAdminChatMessages(chatId) {
         const API = await import('../utils/api.js');
         const chatInfo = await API.getChatMessages(chatId);
         const messages = chatInfo.messages || [];
-        
+
         const messagesContainer = document.getElementById('adminMessagesContainer');
         if (!messagesContainer) return;
-        
+
         messagesContainer.innerHTML = '';
-        
+
         if (messages.length === 0) {
             messagesContainer.innerHTML = '<div class="admin-empty-message">Нет сообщений</div>';
             return;
         }
-        
+
         messages.forEach(msg => {
             const isAdmin = msg.user_id === 'system_admin_001';
             const messageEl = document.createElement('div');
@@ -1131,7 +1245,7 @@ async function loadAdminChatMessages(chatId) {
             `;
             messagesContainer.appendChild(messageEl);
         });
-        
+
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     } catch (error) {
         console.error('Ошибка загрузки сообщений:', error);
@@ -1144,7 +1258,7 @@ async function loadAdminChatMessages(chatId) {
 function createAdminChatWindow() {
     const adminContent = document.getElementById('adminContent');
     if (!adminContent) return;
-    
+
     const chatWindow = document.createElement('div');
     chatWindow.id = 'adminChatWindow';
     chatWindow.className = 'admin-chat-window';
