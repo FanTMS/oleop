@@ -9,6 +9,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,7 +27,10 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // Инициализация базы данных
-const db = new sqlite3.Database(join(__dirname, 'database.db'));
+// Используем /data для персистентного хранения на Amvera, иначе текущая директория
+const dataDir = existsSync('/data') ? '/data' : __dirname;
+const dbPath = join(dataDir, 'database.db');
+const db = new sqlite3.Database(dbPath);
 
 // Промис-обертки для работы с базой данных
 const dbRun = promisify(db.run.bind(db));
