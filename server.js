@@ -1920,35 +1920,48 @@ app.post('/api/users/register', async (req, res) => {
             return res.status(400).json({ error: 'Не все поля заполнены' });
         }
 
+        // telegram_id обязателен для регистрации
+        if (!telegram_id) {
+            return res.status(400).json({ error: 'Telegram ID не получен. Убедитесь, что вы открыли приложение через Telegram.' });
+        }
+
+        // Нормализуем telegram_id (приводим к строке для единообразия)
+        const normalizedTelegramId = String(telegram_id).trim();
+        if (!normalizedTelegramId) {
+            return res.status(400).json({ error: 'Некорректный Telegram ID' });
+        }
+
+        console.log(`Попытка регистрации пользователя с telegram_id: ${normalizedTelegramId}`);
+
         // Проверяем, является ли пользователь администратором по telegram_id
         const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
         let isAdmin = 0;
         
-        if (telegram_id && ADMIN_TELEGRAM_ID && telegram_id.toString() === ADMIN_TELEGRAM_ID.toString()) {
+        if (ADMIN_TELEGRAM_ID && normalizedTelegramId === String(ADMIN_TELEGRAM_ID).trim()) {
             isAdmin = 1;
-            console.log(`Пользователь с telegram_id ${telegram_id} зарегистрирован как администратор`);
+            console.log(`Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как администратор`);
         }
 
         // Проверяем, не зарегистрирован ли уже пользователь с таким telegram_id
+        // Ищем по нормализованному telegram_id
+        const existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [normalizedTelegramId]);
+        
         let userId = null;
-        if (telegram_id) {
-            const existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [telegram_id]);
-            if (existingUser) {
-                // Обновляем существующего пользователя
-                userId = existingUser.id;
-                await dbRun(
-                    'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ? WHERE id = ?',
-                    [name, age, gender, JSON.stringify(interests), isAdmin, userId]
-                );
-            }
-        }
-
-        // Если пользователь не найден, создаем нового
-        if (!userId) {
+        if (existingUser) {
+            // Обновляем существующего пользователя
+            userId = existingUser.id;
+            console.log(`Найден существующий пользователь с telegram_id ${normalizedTelegramId}, ID: ${userId}. Обновляем данные.`);
+            await dbRun(
+                'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ? WHERE id = ?',
+                [name, age, gender, JSON.stringify(interests), isAdmin, userId]
+            );
+        } else {
+            // Если пользователь не найден, создаем нового
             userId = uuidv4();
+            console.log(`Создаем нового пользователя с telegram_id ${normalizedTelegramId}, ID: ${userId}`);
             await dbRun(
                 'INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, telegram_id) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?)',
-                [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, telegram_id || null]
+                [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, normalizedTelegramId]
             );
         }
 

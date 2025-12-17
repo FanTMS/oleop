@@ -217,6 +217,13 @@ export async function handleRegister() {
         console.error('Ошибка получения telegram_id:', error);
     }
     
+    // Проверяем, что telegram_id получен
+    if (!telegram_id) {
+        alert('Ошибка: не удалось получить Telegram ID. Убедитесь, что вы открыли приложение через Telegram.');
+        console.error('Telegram ID не получен. Telegram WebApp:', window.Telegram?.WebApp);
+        return;
+    }
+    
     const userData = {
         name,
         age,
@@ -277,8 +284,14 @@ export async function handleRegister() {
             module.initWebSocket();
         });
     } catch (error) {
-        showError('Ошибка регистрации. Попробуйте еще раз.');
+        const errorMessage = error.message || error.error || 'Ошибка регистрации. Попробуйте еще раз.';
+        showError(errorMessage);
         console.error('Registration error:', error);
+        
+        // Если ошибка связана с telegram_id, показываем более подробное сообщение
+        if (errorMessage.includes('Telegram ID') || errorMessage.includes('telegram')) {
+            alert('Ошибка: ' + errorMessage + '\n\nУбедитесь, что вы открыли приложение через Telegram Mini App.');
+        }
     }
 }
 
