@@ -4,11 +4,15 @@
 # Версия конфигурации
 version: 1
 
+# Версия Node.js
+runtime:
+  version: 20
+
 # Настройки сборки
 build:
   # Команда сборки (установка зависимостей)
   commands:
-    - npm install
+    - npm ci --production=false
 
 # Настройки запуска
 run:
@@ -16,12 +20,11 @@ run:
   command: npm start
   
   # Порт приложения (Amvera автоматически назначит порт через переменную окружения PORT)
-  port: ${PORT:-3000}
+  port: ${PORT}
 
 # Переменные окружения (можно также настроить в панели управления)
 env:
   NODE_ENV: production
-  PORT: 3000
 
 # Исключения из архива (не загружаются на сервер)
 exclude:
@@ -30,9 +33,14 @@ exclude:
   - .gitignore
   - *.log
   - .env.local
+  - .env
   - .history
   - *.bat
   - *.sh
   - oleop
-  - database.db
+  - .vscode
+  - .idea
+  - *.md
+  - railway.json
+  - render.yaml
 
