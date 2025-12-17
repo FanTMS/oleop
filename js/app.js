@@ -297,89 +297,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentUser = Storage.getCurrentUser();
     
     // Функция для обработки после загрузки
-    async function handleAfterLoading() {
+    function handleAfterLoading() {
         // Ждем ровно 2 секунды с момента начала загрузки
-        const elapsed = Date.now() - startTime;
-        const remainingTime = Math.max(0, LOADING_TIME - elapsed);
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-        
-        hideLoadingScreen();
-        
-        if (currentUser) {
-            // Проверяем блокировку пользователя
-            try {
-                const { checkUserBlockStatus } = await import('./utils/api.js');
-                const blockStatus = await checkUserBlockStatus(currentUser.id);
-                
-                if (blockStatus.isBlocked) {
-                    const blockedUntil = new Date(blockStatus.blockedUntil);
-                    const now = new Date();
-                    const daysLeft = Math.ceil((blockedUntil - now) / (1000 * 60 * 60 * 24));
-                    const hoursLeft = Math.ceil((blockedUntil - now) / (1000 * 60 * 60));
-                    
-                    let timeLeft = '';
-                    if (daysLeft > 0) {
-                        timeLeft = `${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}`;
-                    } else if (hoursLeft > 0) {
-                        timeLeft = `${hoursLeft} ${hoursLeft === 1 ? 'час' : hoursLeft < 5 ? 'часа' : 'часов'}`;
-                    } else {
-                        timeLeft = 'менее часа';
+        setTimeout(() => {
+            hideLoadingScreen();
+            
+            if (currentUser) {
+                // Проверяем блокировку пользователя
+                import('./utils/api.js').then(async ({ checkUserBlockStatus }) => {
+                    try {
+                        const blockStatus = await checkUserBlockStatus(currentUser.id);
+                        
+                        if (blockStatus.isBlocked) {
+                            const blockedUntil = new Date(blockStatus.blockedUntil);
+                            const now = new Date();
+                            const daysLeft = Math.ceil((blockedUntil - now) / (1000 * 60 * 60 * 24));
+                            const hoursLeft = Math.ceil((blockedUntil - now) / (1000 * 60 * 60));
+                            
+                            let timeLeft = '';
+                            if (daysLeft > 0) {
+                                timeLeft = `${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}`;
+                            } else if (hoursLeft > 0) {
+                                timeLeft = `${hoursLeft} ${hoursLeft === 1 ? 'час' : hoursLeft < 5 ? 'часа' : 'часов'}`;
+                            } else {
+                                timeLeft = 'менее часа';
+                            }
+                            
+                            alert(`Вы заблокированы!\n\nПричина: ${blockStatus.reason}\nБлокировка до: ${blockedUntil.toLocaleString('ru-RU')}\nОсталось: ${timeLeft}`);
+                            Storage.clearCurrentUser();
+                            import('./modules/auth.js').then(module => {
+                                module.showAuthScreen();
+                                module.showStep(1);
+                            });
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Ошибка проверки блокировки:', error);
                     }
                     
-                    alert(`Вы заблокированы!\n\nПричина: ${blockStatus.reason}\nБлокировка до: ${blockedUntil.toLocaleString('ru-RU')}\nОсталось: ${timeLeft}`);
-                    Storage.clearCurrentUser();
-                    const { showAuthScreen, showStep } = await import('./modules/auth.js');
-                    showAuthScreen();
-                    showStep(1);
-                    return;
-                }
-            } catch (error) {
-                console.error('Ошибка проверки блокировки:', error);
-            }
-            
-            // Перенаправляем на главную страницу
-            showMainApp();
-            
-            // Инициализируем WebSocket для поиска
-            import('./modules/search.js').then(module => {
-                module.initWebSocket();
-            });
-            
-            // Обновляем badge уведомлений при загрузке
-            import('./modules/chat.js').then(module => {
-                module.updateChatsBadge();
-            });
-            
-            // Устанавливаем статус онлайн при входе
-            import('./modules/userStatus.js').then(module => {
-                module.updateUserStatus('online');
-            });
-            
-            // Обновляем статус при уходе со страницы
-            window.addEventListener('beforeunload', () => {
-                import('./modules/userStatus.js').then(module => {
-                    module.updateUserStatus('offline');
-                });
-            });
-            
-            // Обновляем статус при возврате на страницу
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    import('./modules/userStatus.js').then(module => {
-                        module.updateUserStatus('away');
+                    // Перенаправляем на главную страницу
+                    showMainApp();
+                    
+                    // Инициализируем WebSocket для поиска
+                    import('./modules/search.js').then(module => {
+                        module.initWebSocket();
                     });
-                } else {
+                    
+                    // Обновляем badge уведомлений при загрузке
+                    import('./modules/chat.js').then(module => {
+                        module.updateChatsBadge();
+                    });
+                    
+                    // Устанавливаем статус онлайн при входе
                     import('./modules/userStatus.js').then(module => {
                         module.updateUserStatus('online');
                     });
-                }
-            });
-        } else {
-            // Показываем экран регистрации
-            const { showAuthScreen, showStep } = await import('./modules/auth.js');
-            showAuthScreen();
-            showStep(1);
-        }
+                    
+                    // Обновляем статус при уходе со страницы
+                    window.addEventListener('beforeunload', () => {
+                        import('./modules/userStatus.js').then(module => {
+                            module.updateUserStatus('offline');
+                        });
+                    });
+                    
+                    // Обновляем статус при возврате на страницу
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.hidden) {
+                            import('./modules/userStatus.js').then(module => {
+                                module.updateUserStatus('away');
+                            });
+                        } else {
+                            import('./modules/userStatus.js').then(module => {
+                                module.updateUserStatus('online');
+                            });
+                        }
+                    });
+                });
+            } else {
+                // Показываем экран регистрации
+                import('./modules/auth.js').then(module => {
+                    module.showAuthScreen();
+                    module.showStep(1);
+                });
+            }
+        }, LOADING_TIME);
     }
     
     // Запускаем обработку после загрузки

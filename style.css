@@ -132,43 +132,12 @@ body {
     }
 }
 
-/* Точки загрузки */
-.loading-dots {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: center;
-}
-
-.loading-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--primary-color);
-    animation: dotBounce 1.4s ease-in-out infinite;
-}
-
-.loading-dot:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.loading-dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.loading-dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes dotBounce {
-    0%, 80%, 100% {
-        transform: translateY(0);
-        opacity: 0.5;
-    }
-    40% {
-        transform: translateY(-10px);
-        opacity: 1;
-    }
+/* Текст загрузки */
+.loading-text {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-secondary);
+    font-weight: 400;
 }
 
 /* Адаптивность */
@@ -178,9 +147,8 @@ body {
         height: 56px;
     }
     
-    .loading-dot {
-        width: 8px;
-        height: 8px;
+    .loading-text {
+        font-size: 14px;
     }
 }
 
