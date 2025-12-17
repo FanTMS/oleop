@@ -233,52 +233,96 @@
                     <button class="tab-btn" data-tab="quests">Задания</button>
                 </div>
                 <div class="tab-content active" id="tabInfo">
-                    <div class="profile-card">
-                        <div class="profile-section">
-                            <label>Имя</label>
-                            <div class="profile-value" id="profileName">-</div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Бейдж</label>
-                            <div class="profile-value" id="profileBadge">
-                                <span id="profileBadgeText">-</span>
-                                <span id="profileBadgeDate" class="badge-date"></span>
+                    <div class="profile-modern-card">
+                        <div class="profile-header-modern">
+                            <div class="profile-avatar-modern">
+                                <span id="profileAvatarInitial">U</span>
                             </div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Возраст</label>
-                            <div class="profile-value" id="profileAge">-</div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Пол</label>
-                            <div class="profile-value" id="profileGender">-</div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Рейтинг</label>
-                            <div class="profile-value">
-                                <span id="profileRating">-</span>
-                                <span class="rating-stars" id="profileRatingStars"></span>
-                            </div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Интересы</label>
-                            <div class="profile-interests" id="profileInterests"></div>
-                        </div>
-                        <div class="profile-section">
-                            <label>Статистика</label>
-                            <div class="profile-stats">
-                                <div class="stat-item">
-                                    <span class="stat-label">Всего чатов:</span>
-                                    <span class="stat-value" id="statTotalChats">0</span>
+                            <div class="profile-name-section">
+                                <div class="profile-name-wrapper">
+                                    <h2 class="profile-name-display" id="profileNameDisplay">-</h2>
+                                    <button class="profile-edit-btn" id="profileEditNameBtn" title="Редактировать имя">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Получено оценок:</span>
-                                    <span class="stat-value" id="statTotalRatings">0</span>
+                                <div class="profile-name-edit" id="profileNameEdit" style="display: none;">
+                                    <input type="text" id="profileNameInput" class="profile-name-input" maxlength="50" placeholder="Введите имя">
+                                    <div class="profile-name-actions">
+                                        <button class="profile-save-btn" id="profileSaveNameBtn">Сохранить</button>
+                                        <button class="profile-cancel-btn" id="profileCancelNameBtn">Отмена</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-info-grid">
+                            <div class="profile-info-card">
+                                <div class="profile-info-icon">🎂</div>
+                                <div class="profile-info-content">
+                                    <div class="profile-info-label">Возраст</div>
+                                    <div class="profile-info-value" id="profileAge">-</div>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-info-card">
+                                <div class="profile-info-icon">⚧️</div>
+                                <div class="profile-info-content">
+                                    <div class="profile-info-label">Пол</div>
+                                    <div class="profile-info-value" id="profileGender">-</div>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-info-card">
+                                <div class="profile-info-icon">⭐</div>
+                                <div class="profile-info-content">
+                                    <div class="profile-info-label">Рейтинг</div>
+                                    <div class="profile-info-value">
+                                        <span id="profileRating">-</span>
+                                        <span class="rating-stars" id="profileRatingStars"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-info-card">
+                                <div class="profile-info-icon">🏆</div>
+                                <div class="profile-info-content">
+                                    <div class="profile-info-label">Бейдж</div>
+                                    <div class="profile-info-value" id="profileBadge">
+                                        <span id="profileBadgeText">-</span>
+                                        <span id="profileBadgeDate" class="badge-date"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-section-modern">
+                            <h3 class="profile-section-title">Интересы</h3>
+                            <div class="profile-interests-modern" id="profileInterests"></div>
+                        </div>
+                        
+                        <div class="profile-section-modern">
+                            <h3 class="profile-section-title">Статистика</h3>
+                            <div class="profile-stats-modern">
+                                <div class="profile-stat-card">
+                                    <div class="profile-stat-icon">💬</div>
+                                    <div class="profile-stat-info">
+                                        <div class="profile-stat-value" id="statTotalChats">0</div>
+                                        <div class="profile-stat-label">Чатов</div>
+                                    </div>
+                                </div>
+                                <div class="profile-stat-card">
+                                    <div class="profile-stat-icon">⭐</div>
+                                    <div class="profile-stat-info">
+                                        <div class="profile-stat-value" id="statTotalRatings">0</div>
+                                        <div class="profile-stat-label">Оценок</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <button class="btn btn-secondary" onclick="handleLogout()">Выйти</button>
                 </div>
                 <div class="tab-content" id="tabAchievements">
                     <div id="achievementsList" class="achievements-list">

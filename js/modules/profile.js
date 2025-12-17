@@ -35,6 +35,9 @@ export async function updateProfileScreen() {
     // Инициализируем вкладки
     initProfileTabs();
     
+    // Инициализируем редактирование имени
+    initNameEditing();
+    
     // Загружаем информацию профиля
     await loadProfileInfo();
     
@@ -81,7 +84,27 @@ async function loadProfileInfo() {
         const rating = await Storage.getUserRating(currentUser.id);
         const chats = await Storage.getChatsForUser(currentUser.id);
         
-        document.getElementById('profileName').textContent = currentUser.name;
+        // Обновляем имя в профиле
+        const profileNameDisplay = document.getElementById('profileNameDisplay');
+        const profileNameInput = document.getElementById('profileNameInput');
+        if (profileNameDisplay) {
+            profileNameDisplay.textContent = currentUser.name;
+        }
+        if (profileNameInput) {
+            profileNameInput.value = currentUser.name;
+        }
+        
+        // Обновляем аватар (первая буква имени)
+        const profileAvatarInitial = document.getElementById('profileAvatarInitial');
+        if (profileAvatarInitial) {
+            profileAvatarInitial.textContent = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+        }
+        
+        // Старый элемент для совместимости
+        const oldProfileName = document.getElementById('profileName');
+        if (oldProfileName) {
+            oldProfileName.textContent = currentUser.name;
+        }
         document.getElementById('profileAge').textContent = `${currentUser.age} лет`;
         document.getElementById('profileGender').textContent = GENDER_LABELS[currentUser.gender] || currentUser.gender;
         
@@ -96,14 +119,17 @@ async function loadProfileInfo() {
             starsEl.textContent = '';
         }
         
+        // Обновляем интересы
         const interestsEl = document.getElementById('profileInterests');
-        interestsEl.innerHTML = '';
-        (currentUser.interests || []).forEach(interest => {
-            const tag = document.createElement('span');
-            tag.className = 'interest-tag';
-            tag.textContent = interest;
-            interestsEl.appendChild(tag);
-        });
+        if (interestsEl) {
+            interestsEl.innerHTML = '';
+            (currentUser.interests || []).forEach(interest => {
+                const tag = document.createElement('span');
+                tag.className = 'interest-tag';
+                tag.textContent = interest;
+                interestsEl.appendChild(tag);
+            });
+        }
         
         document.getElementById('statTotalChats').textContent = chats.length;
         document.getElementById('statTotalRatings').textContent = rating.count;

@@ -2187,6 +2187,45 @@ app.post('/api/users/register', async (req, res) => {
     }
 });
 
+// Обновить имя пользователя
+app.put('/api/users/:id/name', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { name } = req.body;
+
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            return res.status(400).json({ error: 'Имя не может быть пустым' });
+        }
+
+        if (name.trim().length > 50) {
+            return res.status(400).json({ error: 'Имя не может быть длиннее 50 символов' });
+        }
+
+        const trimmedName = name.trim();
+
+        // Проверяем существование пользователя
+        const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        // Обновляем имя
+        await dbRun('UPDATE users SET name = ? WHERE id = ?', [trimmedName, userId]);
+
+        // Получаем обновленного пользователя
+        const updatedUser = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        updatedUser.interests = updatedUser.interests ? JSON.parse(updatedUser.interests) : [];
+        updatedUser.decorations = updatedUser.decorations ? JSON.parse(updatedUser.decorations) : {};
+
+        console.log(`Имя пользователя ${userId} обновлено на "${trimmedName}"`);
+
+        res.json({ user: updatedUser });
+    } catch (error) {
+        console.error('Ошибка обновления имени пользователя:', error);
+        res.status(500).json({ error: 'Ошибка обновления имени пользователя' });
+    }
+});
+
 // Получить пользователя по telegram_id (для отладки)
 app.get('/api/users/by-telegram/:telegram_id', async (req, res) => {
     try {

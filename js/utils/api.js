@@ -178,6 +178,16 @@ export async function updateUser(userId, updates) {
 }
 
 /**
+ * Обновить имя пользователя
+ */
+export async function updateUserName(userId, name) {
+    return await apiRequest(`/users/${userId}/name`, {
+        method: 'PUT',
+        body: { name }
+    });
+}
+
+/**
  * Удалить пользователя (для админ-панели)
  */
 export async function deleteUser(userId) {
