@@ -1879,7 +1879,7 @@ async function processSearchQueue() {
         // Если не нашли пары по интересам, проверяем время ожидания
         if (!foundMatchByInterests && queue.length >= 2) {
             const now = Date.now();
-            const WAIT_TIME_BEFORE_RANDOM_MATCH = 5000; // 5 секунд ожидания перед случайным сопоставлением
+            const WAIT_TIME_BEFORE_RANDOM_MATCH = 3000; // 3 секунды ожидания перед случайным сопоставлением
 
             // Проверяем, прошло ли достаточно времени с момента добавления в очередь
             let allUsersWaitedLongEnough = true;
@@ -1944,20 +1944,13 @@ async function tryMatchUsers(user1Id, user2Id, checkInterests = true) {
 
             console.log(`Общих интересов: ${commonInterests.length}`, commonInterests);
 
-            // Для ботов требуется минимум 1 общий интерес, для обычных - минимум 2
-            const isBot1 = user1.id.startsWith('test_bot_') || user1.id.startsWith('bot_');
-            const isBot2 = user2.id.startsWith('test_bot_') || user2.id.startsWith('bot_');
-            const minInterests = (isBot1 || isBot2) ? 1 : 2;
-
-            console.log(`Минимум общих интересов требуется: ${minInterests} (бот1: ${isBot1}, бот2: ${isBot2})`);
-
-            // Если недостаточно общих интересов, не создаем чат
-            if (commonInterests.length < minInterests) {
-                console.log(`✗ Недостаточно общих интересов: ${commonInterests.length} < ${minInterests}`);
-                return false;
+            // Минимум общих интересов: 0 (отключена проверка минимального количества)
+            // Логируем информацию о совпадении интересов
+            if (commonInterests.length > 0) {
+                console.log(`✓ Найдена пара по интересам: ${user1.name} и ${user2.name} (общих интересов: ${commonInterests.length})`);
+            } else {
+                console.log(`✓ Создание чата между ${user1.name} и ${user2.name} (общих интересов нет, минимум: 0)`);
             }
-
-            console.log(`✓ Найдена пара по интересам: ${user1.name} и ${user2.name} (общих интересов: ${commonInterests.length})`);
         } else {
             console.log(`✓ Создание чата без проверки интересов: ${user1.name} и ${user2.name}`);
         }
