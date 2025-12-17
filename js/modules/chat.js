@@ -290,15 +290,15 @@ export async function openChat(chatId, partnerData = null) {
                 if (isAdminChat) {
                     chatPartnerInfo.textContent = 'Техническая поддержка';
                 } else {
-                    let infoText = `${partnerAge} лет`;
+                    let infoText = '';
                     if (partnerInterests && partnerInterests.length > 0) {
                         const interestsText = partnerInterests.slice(0, 3).join(', ');
-                        infoText += ` • ${interestsText}`;
+                        infoText = interestsText;
                         if (partnerInterests.length > 3) {
                             infoText += ` +${partnerInterests.length - 3}`;
                         }
                     }
-                    chatPartnerInfo.textContent = infoText;
+                    chatPartnerInfo.textContent = infoText || 'Анонимный пользователь';
                 }
 
                 // Загружаем и отображаем статус партнера
@@ -325,8 +325,20 @@ export async function openChat(chatId, partnerData = null) {
                     gamesButton.style.display = isAdminChat ? 'none' : 'flex';
                 }
 
+                // Проверяем статус завершенности чата
+                // Убеждаемся, что для нового чата статус всегда false
                 isCompleted = chat.is_completed === true || chat.is_completed === 1;
-                console.log('Статус чата из API:', { is_completed: chat.is_completed, isCompleted, chatId, isAdminChat });
+                // Дополнительная проверка: если чат только что создан, он не может быть завершен
+                if (isCompleted && chat.created_at) {
+                    const createdAt = new Date(chat.created_at);
+                    const now = new Date();
+                    // Если чат создан менее 1 секунды назад, считаем его активным
+                    if (now - createdAt < 1000) {
+                        isCompleted = false;
+                        console.log('Чат только что создан, устанавливаем статус как активный');
+                    }
+                }
+                console.log('Статус чата из API:', { is_completed: chat.is_completed, isCompleted, chatId, isAdminChat, created_at: chat.created_at });
 
                 // Применяем тему чата
                 await applyChatTheme(currentUser.id, partnerId);
@@ -334,7 +346,7 @@ export async function openChat(chatId, partnerData = null) {
                 // Если чат не найден в списке, используем данные партнера из WebSocket
                 if (partnerData) {
                     document.getElementById('chatPartnerName').textContent = partnerData.name || 'Собеседник';
-                    document.getElementById('chatPartnerInfo').textContent = partnerData.age ? `${partnerData.age} лет` : 'Загрузка...';
+                    document.getElementById('chatPartnerInfo').textContent = 'Загрузка...';
                 } else {
                     document.getElementById('chatPartnerName').textContent = 'Собеседник';
                     document.getElementById('chatPartnerInfo').textContent = 'Загрузка...';
@@ -353,7 +365,7 @@ export async function openChat(chatId, partnerData = null) {
             console.log('Не удалось загрузить информацию о чате, используем данные из WebSocket:', error);
             if (partnerData) {
                 document.getElementById('chatPartnerName').textContent = partnerData.name || 'Собеседник';
-                document.getElementById('chatPartnerInfo').textContent = partnerData.age ? `${partnerData.age} лет` : 'Загрузка...';
+                document.getElementById('chatPartnerInfo').textContent = 'Загрузка...';
 
                 // Пытаемся применить тему, если известен ID партнера
                 if (partnerData.id) {
@@ -373,10 +385,29 @@ export async function openChat(chatId, partnerData = null) {
         await loadChatMessages(chatId);
 
         // Проверяем завершенность чата из контейнера сообщений (актуальные данные)
+        // Но только если чат был найден в списке чатов (для новых чатов используем статус из API)
         const container = document.getElementById('messagesContainer');
         if (container && container.dataset.isCompleted === 'true') {
-            isCompleted = true;
-            console.log('Чат завершен по данным из сообщений');
+            // Дополнительно проверяем через API для точности
+            try {
+                const chatInfo = await Storage.getChatInfo(chatId);
+                isCompleted = chatInfo.isCompleted === true || chatInfo.isCompleted === 1;
+                console.log('Статус чата из API после загрузки сообщений:', { isCompleted, chatId });
+            } catch (error) {
+                console.error('Ошибка проверки статуса чата:', error);
+                // Если ошибка, используем значение из контейнера
+                isCompleted = container.dataset.isCompleted === 'true';
+            }
+        } else {
+            // Если чат новый и нет данных в контейнере, проверяем через API
+            try {
+                const chatInfo = await Storage.getChatInfo(chatId);
+                isCompleted = chatInfo.isCompleted === true || chatInfo.isCompleted === 1;
+                console.log('Статус нового чата из API:', { isCompleted, chatId });
+            } catch (error) {
+                console.error('Ошибка проверки статуса нового чата:', error);
+                isCompleted = false; // По умолчанию чат активен
+            }
         }
 
         // Отмечаем сообщения как прочитанные при открытии чата
@@ -552,7 +583,15 @@ export async function loadChatMessages(chatId) {
     try {
         const chatInfo = await Storage.getChatInfo(chatId);
         const messages = chatInfo.messages || [];
-        const isCompleted = chatInfo.isCompleted || false;
+        // Убеждаемся, что для нового чата статус всегда false
+        let isCompleted = chatInfo.isCompleted === true || chatInfo.isCompleted === 1;
+        
+        // Дополнительная проверка: если чат только что создан и нет сообщений, он не может быть завершен
+        if (isCompleted && messages.length === 0) {
+            console.log('Чат новый без сообщений, устанавливаем статус как активный');
+            isCompleted = false;
+        }
+        
         const container = document.getElementById('messagesContainer');
         const currentUser = Storage.getCurrentUser();
 
@@ -566,12 +605,9 @@ export async function loadChatMessages(chatId) {
                     <p>Отправьте первое сообщение</p>
                 </div>
             `;
-            if (isCompleted) {
-                const completedDiv = document.createElement('div');
-                completedDiv.className = 'chat-completed-notice';
-                completedDiv.textContent = 'Чат был завершен';
-                container.appendChild(completedDiv);
-            }
+            // Для нового чата без сообщений не показываем уведомление о завершении
+            // Устанавливаем статус как активный для нового чата
+            container.dataset.isCompleted = 'false';
             return;
         }
 
