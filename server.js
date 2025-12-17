@@ -881,7 +881,7 @@ function stopPeriodicSearch() {
 wss.on('connection', (ws, req) => {
     let userId = null;
 
-    ws.on('message', (message) => {
+    ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message.toString());
 
