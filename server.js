@@ -96,6 +96,14 @@ async function initDatabase() {
             // Поле уже существует, игнорируем ошибку
         }
 
+        // Добавляем поле admin_role если его нет (миграция)
+        // Значения: 'super_admin' (главный администратор), 'admin' (администратор), 'moderator' (модератор), NULL (обычный пользователь)
+        try {
+            await dbExec(`ALTER TABLE users ADD COLUMN admin_role TEXT DEFAULT NULL`);
+        } catch (error) {
+            // Поле уже существует, игнорируем ошибку
+        }
+
         // Создаем уникальный индекс на telegram_id (только для не-NULL значений)
         // Это предотвратит создание дубликатов
         try {
@@ -813,16 +821,17 @@ async function initBadges() {
     }
 }
 
-// Инициализация системного администратора
+// Инициализация системного администратора и главного администратора
 async function initSystemAdmin() {
     try {
+        // Создаем системного администратора (для чатов поддержки)
         const ADMIN_ID = 'system_admin_001';
         const admin = await dbGet('SELECT * FROM users WHERE id = ?', [ADMIN_ID]);
 
         if (!admin) {
             await dbRun(
-                `INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, admin_role) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     ADMIN_ID,
                     'Администратор',
@@ -832,10 +841,47 @@ async function initSystemAdmin() {
                     0,
                     JSON.stringify({}),
                     1,
-                    1
+                    1,
+                    'admin'
                 ]
             );
             console.log('Системный администратор создан');
+        }
+
+        // Создаем или обновляем главного администратора
+        const SUPER_ADMIN_TELEGRAM_ID = '5394381166';
+        const superAdmin = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [SUPER_ADMIN_TELEGRAM_ID]);
+
+        if (superAdmin) {
+            // Обновляем существующего пользователя до главного администратора
+            if (superAdmin.admin_role !== 'super_admin') {
+                await dbRun(
+                    'UPDATE users SET is_admin = 1, admin_role = ? WHERE telegram_id = ?',
+                    ['super_admin', SUPER_ADMIN_TELEGRAM_ID]
+                );
+                console.log('Пользователь с telegram_id 5394381166 назначен главным администратором');
+            }
+        } else {
+            // Создаем главного администратора, если его нет
+            const superAdminId = uuidv4();
+            await dbRun(
+                `INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, admin_role, telegram_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    superAdminId,
+                    'Главный администратор',
+                    0,
+                    'other',
+                    JSON.stringify(['администрирование']),
+                    0,
+                    JSON.stringify({}),
+                    1,
+                    0,
+                    'super_admin',
+                    SUPER_ADMIN_TELEGRAM_ID
+                ]
+            );
+            console.log('Главный администратор создан (telegram_id: 5394381166)');
         }
     } catch (error) {
         console.error('Ошибка создания системного администратора:', error);
@@ -1920,6 +1966,69 @@ async function findMatch(userId) {
 
 // API Routes
 
+// Функции проверки прав доступа
+function hasAdminAccess(user) {
+    if (!user) return false;
+    return user.is_admin === 1 && (user.admin_role === 'super_admin' || user.admin_role === 'admin' || user.admin_role === 'moderator');
+}
+
+function hasSuperAdminAccess(user) {
+    if (!user) return false;
+    return user.is_admin === 1 && user.admin_role === 'super_admin';
+}
+
+function hasFullAdminAccess(user) {
+    if (!user) return false;
+    return user.is_admin === 1 && (user.admin_role === 'super_admin' || user.admin_role === 'admin');
+}
+
+function hasModeratorAccess(user) {
+    if (!user) return false;
+    return user.is_admin === 1 && (user.admin_role === 'moderator' || user.admin_role === 'admin' || user.admin_role === 'super_admin');
+}
+
+// Middleware для проверки прав администратора
+async function requireAdmin(req, res, next) {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(401).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора.' });
+        }
+
+        req.adminUser = user;
+        next();
+    } catch (error) {
+        console.error('Ошибка проверки прав администратора:', error);
+        res.status(500).json({ error: 'Ошибка проверки прав доступа' });
+    }
+}
+
+// Middleware для проверки прав супер-администратора
+async function requireSuperAdmin(req, res, next) {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(401).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasSuperAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права главного администратора.' });
+        }
+
+        req.adminUser = user;
+        next();
+    } catch (error) {
+        console.error('Ошибка проверки прав главного администратора:', error);
+        res.status(500).json({ error: 'Ошибка проверки прав доступа' });
+    }
+}
+
 // Регистрация пользователя
 app.post('/api/users/register', async (req, res) => {
     try {
@@ -1942,15 +2051,6 @@ app.post('/api/users/register', async (req, res) => {
 
         console.log(`[REGISTER] Попытка регистрации пользователя с telegram_id: "${normalizedTelegramId}" (тип: ${typeof telegram_id}, оригинал: "${telegram_id}")`);
 
-        // Проверяем, является ли пользователь администратором по telegram_id
-        const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
-        let isAdmin = 0;
-
-        if (ADMIN_TELEGRAM_ID && normalizedTelegramId === String(ADMIN_TELEGRAM_ID).trim().replace(/\s+/g, '')) {
-            isAdmin = 1;
-            console.log(`[REGISTER] Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как администратор`);
-        }
-
         // СТРОГАЯ ПРОВЕРКА: Ищем пользователя по telegram_id несколькими способами
         // 1. Точное совпадение нормализованного значения
         let existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ? COLLATE NOCASE', [normalizedTelegramId]);
@@ -1965,12 +2065,39 @@ app.post('/api/users/register', async (req, res) => {
             existingUser = await dbGet('SELECT * FROM users WHERE telegram_id = ?', [parseInt(normalizedTelegramId).toString()]);
         }
 
+        // Определяем роль администратора
+        const SUPER_ADMIN_TELEGRAM_ID = '5394381166';
+        let isAdmin = 0;
+        let adminRole = null;
+
+        // Если пользователь уже существует, сохраняем его текущую роль (если есть)
+        if (existingUser && existingUser.admin_role) {
+            adminRole = existingUser.admin_role;
+            isAdmin = existingUser.is_admin || 0;
+        } else {
+            // Проверяем, является ли пользователь главным администратором
+            if (normalizedTelegramId === SUPER_ADMIN_TELEGRAM_ID) {
+                isAdmin = 1;
+                adminRole = 'super_admin';
+                console.log(`[REGISTER] Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как главный администратор`);
+            } else {
+                // Проверяем старый способ назначения администратора через переменную окружения
+                const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
+                if (ADMIN_TELEGRAM_ID && normalizedTelegramId === String(ADMIN_TELEGRAM_ID).trim().replace(/\s+/g, '')) {
+                    isAdmin = 1;
+                    adminRole = 'admin';
+                    console.log(`[REGISTER] Пользователь с telegram_id ${normalizedTelegramId} зарегистрирован как администратор`);
+                }
+            }
+        }
+
         // Логируем результат поиска
         if (existingUser) {
             console.log(`[REGISTER] ✓ Найден существующий пользователь:`);
             console.log(`  - telegram_id в БД: "${existingUser.telegram_id}"`);
             console.log(`  - telegram_id запроса: "${normalizedTelegramId}"`);
             console.log(`  - user_id: ${existingUser.id}`);
+            console.log(`  - admin_role: ${adminRole || 'нет'}`);
         } else {
             console.log(`[REGISTER] ✗ Пользователь с telegram_id "${normalizedTelegramId}" не найден, создаем нового`);
         }
@@ -1981,10 +2108,10 @@ app.post('/api/users/register', async (req, res) => {
             userId = existingUser.id;
             console.log(`[REGISTER] Обновляем данные пользователя ID: ${userId}`);
 
-            // Убеждаемся, что telegram_id установлен правильно (на случай если был NULL)
+            // Убеждаемся, что telegram_id и роль установлены правильно (на случай если был NULL)
             await dbRun(
-                'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, telegram_id = ? WHERE id = ?',
-                [name, age, gender, JSON.stringify(interests), isAdmin, normalizedTelegramId, userId]
+                'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, admin_role = ?, telegram_id = ? WHERE id = ?',
+                [name, age, gender, JSON.stringify(interests), isAdmin, adminRole, normalizedTelegramId, userId]
             );
         } else {
             // Если пользователь не найден, создаем нового
@@ -1995,8 +2122,8 @@ app.post('/api/users/register', async (req, res) => {
 
             try {
                 await dbRun(
-                    'INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, telegram_id) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?)',
-                    [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, normalizedTelegramId]
+                    'INSERT INTO users (id, name, age, gender, interests, coins, decorations, is_admin, is_system, admin_role, telegram_id) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?, ?)',
+                    [userId, name, age, gender, JSON.stringify(interests), JSON.stringify({}), isAdmin, adminRole, normalizedTelegramId]
                 );
             } catch (insertError) {
                 // Если ошибка уникальности индекса, значит пользователь все-таки существует
@@ -2007,8 +2134,8 @@ app.post('/api/users/register', async (req, res) => {
                         userId = existingUser.id;
                         console.log(`[REGISTER] Найден пользователь после конфликта, ID: ${userId}`);
                         await dbRun(
-                            'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, telegram_id = ? WHERE id = ?',
-                            [name, age, gender, JSON.stringify(interests), isAdmin, normalizedTelegramId, userId]
+                            'UPDATE users SET name = ?, age = ?, gender = ?, interests = ?, is_admin = ?, admin_role = ?, telegram_id = ? WHERE id = ?',
+                            [name, age, gender, JSON.stringify(interests), isAdmin, adminRole, normalizedTelegramId, userId]
                         );
                     } else {
                         throw insertError;
@@ -2112,6 +2239,16 @@ app.get('/api/users/:id', async (req, res) => {
 // Получить чаты администратора (только с пользователями)
 app.get('/api/admin/chats', async (req, res) => {
     try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasModeratorAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права модератора или выше.' });
+        }
+
         const ADMIN_ID = 'system_admin_001';
         const chats = await dbAll(`
             SELECT c.*, 
@@ -3313,6 +3450,16 @@ app.get('/api/stats', async (req, res) => {
 // Получить всех пользователей (для админ-панели)
 app.get('/api/admin/users', async (req, res) => {
     try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasFullAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора или выше.' });
+        }
+
         const users = await dbAll(`
             SELECT id, name, age, gender, interests, coins, rating_average, rating_count, 
                    decorations, created_at, is_admin, is_system
@@ -3340,12 +3487,21 @@ app.get('/api/admin/users', async (req, res) => {
 // Обновить пользователя (для админ-панели)
 app.put('/api/admin/users/:id', async (req, res) => {
     try {
-        const { rating_average, rating_count, coins } = req.body;
-        const userId = req.params.id;
+        const { userId: adminUserId, rating_average, rating_count, coins } = req.body;
+        const targetUserId = req.params.id;
+
+        if (!adminUserId) {
+            return res.status(400).json({ error: 'Не указан ID администратора' });
+        }
+
+        const adminUser = await dbGet('SELECT * FROM users WHERE id = ?', [adminUserId]);
+        if (!adminUser || !hasFullAdminAccess(adminUser)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора или выше.' });
+        }
 
         // Проверяем существование пользователя
-        const user = await dbGet('SELECT id FROM users WHERE id = ? AND is_system = 0', [userId]);
-        if (!user) {
+        const targetUser = await dbGet('SELECT id FROM users WHERE id = ? AND is_system = 0', [targetUserId]);
+        if (!targetUser) {
             return res.status(404).json({ error: 'Пользователь не найден' });
         }
 
@@ -3371,7 +3527,7 @@ app.put('/api/admin/users/:id', async (req, res) => {
             return res.status(400).json({ error: 'Нет данных для обновления' });
         }
 
-        values.push(userId);
+        values.push(targetUserId);
         await dbRun(
             `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
             values
@@ -3381,7 +3537,7 @@ app.put('/api/admin/users/:id', async (req, res) => {
             SELECT id, name, age, gender, interests, coins, rating_average, rating_count, 
                    decorations, created_at, is_admin, is_system
             FROM users WHERE id = ?
-        `, [userId]);
+        `, [targetUserId]);
 
         updatedUser.interests = updatedUser.interests ? JSON.parse(updatedUser.interests) : [];
         updatedUser.decorations = updatedUser.decorations ? JSON.parse(updatedUser.decorations) : {};
@@ -3396,28 +3552,38 @@ app.put('/api/admin/users/:id', async (req, res) => {
 // Удалить пользователя (для админ-панели)
 app.delete('/api/admin/users/:id', async (req, res) => {
     try {
-        const userId = req.params.id;
+        const { userId: adminUserId } = req.body;
+        const targetUserId = req.params.id;
+
+        if (!adminUserId) {
+            return res.status(400).json({ error: 'Не указан ID администратора' });
+        }
+
+        const adminUser = await dbGet('SELECT * FROM users WHERE id = ?', [adminUserId]);
+        if (!adminUser || !hasFullAdminAccess(adminUser)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора или выше.' });
+        }
 
         // Проверяем существование пользователя
-        const user = await dbGet('SELECT id FROM users WHERE id = ? AND is_system = 0', [userId]);
-        if (!user) {
+        const targetUser = await dbGet('SELECT id FROM users WHERE id = ? AND is_system = 0', [targetUserId]);
+        if (!targetUser) {
             return res.status(404).json({ error: 'Пользователь не найден' });
         }
 
         // Удаляем пользователя и связанные данные
-        await dbRun('DELETE FROM user_items WHERE user_id = ?', [userId]);
-        await dbRun('DELETE FROM ratings WHERE user_id = ? OR rated_user_id = ?', [userId, userId]);
-        await dbRun('DELETE FROM search_queue WHERE user_id = ?', [userId]);
-        await dbRun('DELETE FROM messages WHERE user_id = ?', [userId]);
+        await dbRun('DELETE FROM user_items WHERE user_id = ?', [targetUserId]);
+        await dbRun('DELETE FROM ratings WHERE user_id = ? OR rated_user_id = ?', [targetUserId, targetUserId]);
+        await dbRun('DELETE FROM search_queue WHERE user_id = ?', [targetUserId]);
+        await dbRun('DELETE FROM messages WHERE user_id = ?', [targetUserId]);
 
         // Удаляем чаты пользователя
-        const userChats = await dbAll('SELECT id FROM chats WHERE user1_id = ? OR user2_id = ?', [userId, userId]);
+        const userChats = await dbAll('SELECT id FROM chats WHERE user1_id = ? OR user2_id = ?', [targetUserId, targetUserId]);
         for (const chat of userChats) {
             await dbRun('DELETE FROM messages WHERE chat_id = ?', [chat.id]);
         }
-        await dbRun('DELETE FROM chats WHERE user1_id = ? OR user2_id = ?', [userId, userId]);
+        await dbRun('DELETE FROM chats WHERE user1_id = ? OR user2_id = ?', [targetUserId, targetUserId]);
 
-        await dbRun('DELETE FROM users WHERE id = ?', [userId]);
+        await dbRun('DELETE FROM users WHERE id = ?', [targetUserId]);
 
         res.json({ success: true });
     } catch (error) {
@@ -3863,7 +4029,17 @@ app.post('/api/reports', async (req, res) => {
 // API: Получить список жалоб (для админа)
 app.get('/api/reports', async (req, res) => {
     try {
-        const { status } = req.query;
+        const { status, userId } = req.query;
+
+        // Проверка прав доступа для администраторов
+        if (userId) {
+            const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+            if (!user || !hasModeratorAccess(user)) {
+                return res.status(403).json({ error: 'Доступ запрещен. Требуются права модератора или выше.' });
+            }
+        }
+
+        const { status: statusParam } = req.query;
         let query = `
             SELECT r.*, 
                    u1.name as reporter_name,
@@ -3876,9 +4052,9 @@ app.get('/api/reports', async (req, res) => {
         `;
         const params = [];
 
-        if (status) {
+        if (statusParam) {
             query += ' WHERE r.status = ?';
-            params.push(status);
+            params.push(statusParam);
         }
 
         query += ' ORDER BY r.created_at DESC';
@@ -3894,6 +4070,16 @@ app.get('/api/reports', async (req, res) => {
 // API: Получить детали жалобы
 app.get('/api/reports/:id', async (req, res) => {
     try {
+        const { userId } = req.query;
+
+        // Проверка прав доступа для администраторов
+        if (userId) {
+            const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+            if (!user || !hasModeratorAccess(user)) {
+                return res.status(403).json({ error: 'Доступ запрещен. Требуются права модератора или выше.' });
+            }
+        }
+
         const report = await dbGet(`
             SELECT r.*, 
                    u1.name as reporter_name, u1.age as reporter_age,
@@ -3942,8 +4128,17 @@ app.get('/api/reports/:id', async (req, res) => {
 // API: Обработать жалобу (для админа)
 app.post('/api/reports/:id/resolve', async (req, res) => {
     try {
-        const { verdict, message, blockDays } = req.body;
+        const { verdict, message, blockDays, userId } = req.body;
         const reportId = req.params.id;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasModeratorAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права модератора или выше.' });
+        }
 
         if (!verdict || (verdict !== 'approved' && verdict !== 'rejected')) {
             return res.status(400).json({ error: 'Неверный вердикт' });
@@ -3992,10 +4187,201 @@ app.post('/api/reports/:id/resolve', async (req, res) => {
     }
 });
 
+// API: Получить список администраторов (только для супер-администратора)
+app.get('/api/admin/admins', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasSuperAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права главного администратора.' });
+        }
+
+        const admins = await dbAll(`
+            SELECT id, name, telegram_id, admin_role, is_admin, created_at
+            FROM users 
+            WHERE is_admin = 1 AND admin_role IS NOT NULL
+            ORDER BY 
+                CASE admin_role
+                    WHEN 'super_admin' THEN 1
+                    WHEN 'admin' THEN 2
+                    WHEN 'moderator' THEN 3
+                    ELSE 4
+                END,
+                created_at ASC
+        `);
+
+        res.json({ admins });
+    } catch (error) {
+        console.error('Ошибка получения списка администраторов:', error);
+        res.status(500).json({ error: 'Ошибка получения списка администраторов' });
+    }
+});
+
+// API: Добавить администратора (только для супер-администратора)
+app.post('/api/admin/admins', async (req, res) => {
+    try {
+        const { userId, targetTelegramId, role } = req.body;
+
+        if (!userId || !targetTelegramId || !role) {
+            return res.status(400).json({ error: 'Не указаны все необходимые параметры' });
+        }
+
+        if (!['admin', 'moderator'].includes(role)) {
+            return res.status(400).json({ error: 'Некорректная роль. Доступны: admin, moderator' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasSuperAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права главного администратора.' });
+        }
+
+        // Ищем пользователя по telegram_id
+        const normalizedTelegramId = String(targetTelegramId).trim().replace(/\s+/g, '');
+        const targetUser = await dbGet('SELECT * FROM users WHERE telegram_id = ? COLLATE NOCASE', [normalizedTelegramId]);
+
+        if (!targetUser) {
+            return res.status(404).json({ error: 'Пользователь с указанным Telegram ID не найден' });
+        }
+
+        if (targetUser.admin_role === 'super_admin') {
+            return res.status(400).json({ error: 'Нельзя изменить роль главного администратора' });
+        }
+
+        // Обновляем роль пользователя
+        await dbRun(
+            'UPDATE users SET is_admin = 1, admin_role = ? WHERE id = ?',
+            [role, targetUser.id]
+        );
+
+        console.log(`Пользователь ${targetUser.name} (${targetUser.id}) назначен ${role === 'admin' ? 'администратором' : 'модератором'}`);
+
+        res.json({
+            success: true,
+            message: `Пользователь успешно назначен ${role === 'admin' ? 'администратором' : 'модератором'}`,
+            admin: {
+                id: targetUser.id,
+                name: targetUser.name,
+                telegram_id: targetUser.telegram_id,
+                admin_role: role
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка добавления администратора:', error);
+        res.status(500).json({ error: 'Ошибка добавления администратора' });
+    }
+});
+
+// API: Удалить администратора (только для супер-администратора)
+app.delete('/api/admin/admins/:adminId', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const adminId = req.params.adminId;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Не указан ID пользователя' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasSuperAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права главного администратора.' });
+        }
+
+        const targetAdmin = await dbGet('SELECT * FROM users WHERE id = ?', [adminId]);
+        if (!targetAdmin) {
+            return res.status(404).json({ error: 'Администратор не найден' });
+        }
+
+        if (targetAdmin.admin_role === 'super_admin') {
+            return res.status(400).json({ error: 'Нельзя удалить главного администратора' });
+        }
+
+        // Удаляем права администратора
+        await dbRun(
+            'UPDATE users SET is_admin = 0, admin_role = NULL WHERE id = ?',
+            [adminId]
+        );
+
+        console.log(`Права администратора удалены у пользователя ${targetAdmin.name} (${adminId})`);
+
+        res.json({
+            success: true,
+            message: 'Права администратора успешно удалены'
+        });
+    } catch (error) {
+        console.error('Ошибка удаления администратора:', error);
+        res.status(500).json({ error: 'Ошибка удаления администратора' });
+    }
+});
+
+// API: Изменить роль администратора (только для супер-администратора)
+app.put('/api/admin/admins/:adminId', async (req, res) => {
+    try {
+        const { userId, role } = req.body;
+        const adminId = req.params.adminId;
+
+        if (!userId || !role) {
+            return res.status(400).json({ error: 'Не указаны все необходимые параметры' });
+        }
+
+        if (!['admin', 'moderator'].includes(role)) {
+            return res.status(400).json({ error: 'Некорректная роль. Доступны: admin, moderator' });
+        }
+
+        const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user || !hasSuperAdminAccess(user)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права главного администратора.' });
+        }
+
+        const targetAdmin = await dbGet('SELECT * FROM users WHERE id = ?', [adminId]);
+        if (!targetAdmin) {
+            return res.status(404).json({ error: 'Администратор не найден' });
+        }
+
+        if (targetAdmin.admin_role === 'super_admin') {
+            return res.status(400).json({ error: 'Нельзя изменить роль главного администратора' });
+        }
+
+        // Обновляем роль
+        await dbRun(
+            'UPDATE users SET admin_role = ? WHERE id = ?',
+            [role, adminId]
+        );
+
+        console.log(`Роль пользователя ${targetAdmin.name} (${adminId}) изменена на ${role}`);
+
+        res.json({
+            success: true,
+            message: `Роль успешно изменена на ${role === 'admin' ? 'администратор' : 'модератор'}`,
+            admin: {
+                id: targetAdmin.id,
+                name: targetAdmin.name,
+                admin_role: role
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка изменения роли администратора:', error);
+        res.status(500).json({ error: 'Ошибка изменения роли администратора' });
+    }
+});
+
 // API: Отправить сообщение от администратора пользователю
 app.post('/api/admin/send-message', async (req, res) => {
     try {
-        const { userId, text } = req.body;
+        const { userId, text, adminUserId } = req.body;
+
+        if (!adminUserId) {
+            return res.status(400).json({ error: 'Не указан ID администратора' });
+        }
+
+        const adminUser = await dbGet('SELECT * FROM users WHERE id = ?', [adminUserId]);
+        if (!adminUser || !hasModeratorAccess(adminUser)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права модератора или выше.' });
+        }
+
         const ADMIN_ID = 'system_admin_001';
 
         if (!userId || !text) {
@@ -4054,7 +4440,16 @@ app.post('/api/admin/send-message', async (req, res) => {
 // API: Массовая рассылка сообщений
 app.post('/api/admin/broadcast', async (req, res) => {
     try {
-        const { text, userIds } = req.body;
+        const { text, userIds, adminUserId } = req.body;
+
+        if (!adminUserId) {
+            return res.status(400).json({ error: 'Не указан ID администратора' });
+        }
+
+        const adminUser = await dbGet('SELECT * FROM users WHERE id = ?', [adminUserId]);
+        if (!adminUser || !hasFullAdminAccess(adminUser)) {
+            return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора или выше.' });
+        }
         const ADMIN_ID = 'system_admin_001';
 
         if (!text) {

@@ -24,7 +24,7 @@ export function showAdminLogin() {
 /**
  * Вход в админ-панель
  */
-export function loginAdmin() {
+export async function loginAdmin() {
     const password = document.getElementById('adminPassword').value;
 
     if (!checkAdminPassword(password)) {
@@ -35,8 +35,43 @@ export function loginAdmin() {
 
     document.getElementById('adminLogin').style.display = 'none';
     document.querySelector('.admin-panel').style.display = 'block';
+    
+    // Проверяем права доступа и обновляем видимость элементов
+    await updateAdminNavVisibility();
+    
     showAdminStats();
     hapticFeedback('success');
+}
+
+/**
+ * Обновить видимость элементов админ-панели в зависимости от роли
+ */
+async function updateAdminNavVisibility() {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        return;
+    }
+
+    try {
+        // Получаем данные пользователя с сервера для проверки роли
+        const response = await fetch(`${window.location.origin}/api/users/${currentUser.id}`);
+        if (response.ok) {
+            const data = await response.json();
+            const user = data.user;
+            
+            // Показываем кнопку управления администраторами только для супер-администратора
+            const adminAdminsNav = document.getElementById('adminAdminsNav');
+            if (adminAdminsNav) {
+                if (user && user.admin_role === 'super_admin') {
+                    adminAdminsNav.style.display = 'flex';
+                } else {
+                    adminAdminsNav.style.display = 'none';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка проверки прав доступа:', error);
+    }
 }
 
 /**
@@ -500,6 +535,103 @@ export async function showReportDetails(reportId) {
 }
 
 /**
+ * Показать управление администраторами
+ */
+export async function showAdminAdmins() {
+    currentAdminScreen = 'admins';
+    updateAdminNav();
+
+    const content = document.getElementById('adminContent');
+    const currentUser = Storage.getCurrentUser();
+    
+    if (!currentUser || !currentUser.id) {
+        content.innerHTML = '<div class="admin-error">Ошибка: не удалось получить данные пользователя</div>';
+        return;
+    }
+
+    try {
+        // Проверяем, является ли пользователь супер-администратором
+        const response = await fetch(`${window.location.origin}/api/admin/admins?userId=${currentUser.id}`);
+        if (!response.ok) {
+            if (response.status === 403) {
+                content.innerHTML = `
+                    <div class="admin-error">
+                        <h3>⚠️ Доступ запрещен</h3>
+                        <p>Управление администраторами доступно только главному администратору.</p>
+                    </div>
+                `;
+                return;
+            }
+            throw new Error('Ошибка получения списка администраторов');
+        }
+
+        const data = await response.json();
+        const admins = data.admins || [];
+
+        const roleLabels = {
+            'super_admin': 'Главный администратор',
+            'admin': 'Администратор',
+            'moderator': 'Модератор'
+        };
+
+        const roleColors = {
+            'super_admin': '#FF6B6B',
+            'admin': '#4ECDC4',
+            'moderator': '#95E1D3'
+        };
+
+        content.innerHTML = `
+            <div class="admin-admins-section">
+                <div class="admin-section-header">
+                    <h3>👑 Управление администраторами</h3>
+                    <button class="btn btn-primary" data-action="add-admin">
+                        ➕ Добавить администратора
+                    </button>
+                </div>
+                
+                <div class="admin-admins-list">
+                    <h4>Список администраторов (${admins.length})</h4>
+                    ${admins.length === 0 ? '<div class="admin-empty">Нет администраторов</div>' : ''}
+                    ${admins.map(admin => `
+                        <div class="admin-admin-item">
+                            <div class="admin-admin-info">
+                                <div class="admin-admin-name">
+                                    ${admin.name}
+                                    <span class="admin-role-badge" style="background: ${roleColors[admin.admin_role] || '#999'}">
+                                        ${roleLabels[admin.admin_role] || admin.admin_role}
+                                    </span>
+                                    ${admin.admin_role === 'super_admin' ? '<span class="admin-super-badge">🔒</span>' : ''}
+                                </div>
+                                <div class="admin-admin-details">
+                                    Telegram ID: ${admin.telegram_id || 'не указан'}
+                                    ${admin.created_at ? `• Создан: ${new Date(admin.created_at).toLocaleDateString('ru-RU')}` : ''}
+                                </div>
+                            </div>
+                            <div class="admin-admin-controls">
+                                ${admin.admin_role !== 'super_admin' ? `
+                                    <select class="admin-role-select" data-admin-id="${admin.id}" data-current-role="${admin.admin_role}">
+                                        <option value="moderator" ${admin.admin_role === 'moderator' ? 'selected' : ''}>Модератор</option>
+                                        <option value="admin" ${admin.admin_role === 'admin' ? 'selected' : ''}>Администратор</option>
+                                    </select>
+                                    <button class="btn btn-danger btn-small" data-action="remove-admin" data-admin-id="${admin.id}">
+                                        🗑️ Удалить
+                                    </button>
+                                ` : '<span class="admin-readonly">Нельзя изменить</span>'}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        setupAdminActions();
+    } catch (error) {
+        console.error('Ошибка загрузки администраторов:', error);
+        content.innerHTML = `<div class="admin-error">Ошибка загрузки: ${error.message}</div>`;
+    }
+}
+
+/**
  * Показать управление ботом
  */
 export function showAdminBot() {
@@ -769,9 +901,37 @@ function setupAdminActions() {
                 const adminChatWindow = document.getElementById('adminChatWindow');
                 if (adminChatWindow) adminChatWindow.classList.remove('active');
                 break;
+            case 'show-admin-admins':
+                e.preventDefault();
+                showAdminAdmins();
+                break;
+            case 'add-admin':
+                e.preventDefault();
+                showAddAdminModal();
+                break;
+            case 'remove-admin':
+                e.preventDefault();
+                const adminIdToRemove = e.target.closest('[data-admin-id]')?.getAttribute('data-admin-id');
+                if (adminIdToRemove && confirm('Удалить права администратора у этого пользователя?')) {
+                    removeAdmin(adminIdToRemove);
+                }
+                break;
         }
     });
 }
+
+// Обработчик изменения роли через select (добавляется динамически после загрузки списка)
+document.addEventListener('change', async (e) => {
+    if (e.target.classList.contains('admin-role-select')) {
+        const select = e.target;
+        const adminId = select.getAttribute('data-admin-id');
+        const newRole = select.value;
+        const currentRole = select.getAttribute('data-current-role');
+        if (adminId && newRole !== currentRole) {
+            await changeAdminRole(adminId, newRole);
+        }
+    }
+});
 
 let currentAdminChatId = null;
 let currentAdminUserId = null;
@@ -1028,6 +1188,166 @@ function showBroadcastModal() {
         document.body.appendChild(modal);
     }
     modal.classList.add('active');
+}
+
+/**
+ * Показать модальное окно добавления администратора
+ */
+async function showAddAdminModal() {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        alert('Ошибка: не удалось получить данные пользователя');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>➕ Добавить администратора</h3>
+            <div class="form-group">
+                <label for="adminTelegramId">Telegram ID пользователя:</label>
+                <input type="text" id="adminTelegramId" class="form-input" placeholder="Введите Telegram ID" required>
+                <small>Пользователь должен быть зарегистрирован в системе</small>
+            </div>
+            <div class="form-group">
+                <label for="adminRole">Роль:</label>
+                <select id="adminRole" class="form-input" required>
+                    <option value="moderator">Модератор (чаты с администратором, жалобы)</option>
+                    <option value="admin">Администратор (полный доступ)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-action="close-add-admin-modal">Отмена</button>
+                <button class="btn btn-primary" data-action="confirm-add-admin">Добавить</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Обработчики
+    modal.querySelector('[data-action="close-add-admin-modal"]').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    modal.querySelector('[data-action="confirm-add-admin"]').addEventListener('click', async () => {
+        const telegramId = document.getElementById('adminTelegramId').value.trim();
+        const role = document.getElementById('adminRole').value;
+
+        if (!telegramId) {
+            alert('Введите Telegram ID');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${window.location.origin}/api/admin/admins`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId: currentUser.id,
+                    targetTelegramId: telegramId,
+                    role: role
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Ошибка добавления администратора');
+            }
+
+            alert(data.message || 'Администратор успешно добавлен');
+            modal.remove();
+            showAdminAdmins();
+            hapticFeedback('success');
+        } catch (error) {
+            console.error('Ошибка добавления администратора:', error);
+            alert('Ошибка: ' + error.message);
+            hapticFeedback('error');
+        }
+    });
+}
+
+/**
+ * Удалить администратора
+ */
+async function removeAdmin(adminId) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        alert('Ошибка: не удалось получить данные пользователя');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${window.location.origin}/api/admin/admins/${adminId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: currentUser.id
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка удаления администратора');
+        }
+
+        alert(data.message || 'Права администратора успешно удалены');
+        showAdminAdmins();
+        hapticFeedback('success');
+    } catch (error) {
+        console.error('Ошибка удаления администратора:', error);
+        alert('Ошибка: ' + error.message);
+        hapticFeedback('error');
+    }
+}
+
+/**
+ * Изменить роль администратора
+ */
+async function changeAdminRole(adminId, newRole) {
+    const currentUser = Storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+        alert('Ошибка: не удалось получить данные пользователя');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${window.location.origin}/api/admin/admins/${adminId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: currentUser.id,
+                role: newRole
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка изменения роли');
+        }
+
+        alert(data.message || 'Роль успешно изменена');
+        showAdminAdmins();
+        hapticFeedback('success');
+    } catch (error) {
+        console.error('Ошибка изменения роли:', error);
+        alert('Ошибка: ' + error.message);
+        hapticFeedback('error');
+        // Восстанавливаем предыдущее значение
+        const select = document.querySelector(`.admin-role-select[data-admin-id="${adminId}"]`);
+        if (select) {
+            select.value = select.getAttribute('data-current-role');
+        }
+    }
 }
 
 // Инициализация обработчиков при загрузке

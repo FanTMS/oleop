@@ -12,7 +12,7 @@ import { sendMessage, handleKeyPress, endChat, closeActiveChat } from './modules
 import { startSearching, stopSearching, goToMatchedChat } from './modules/search.js';
 import { setRating, submitRating, closeRatingModal } from './modules/rating.js';
 import { showGamesMenu, closeGamesMenu, makeRPSChoice, resetRPSGame, closeRPSGame, makeTTTChoice, resetTTTGame, closeTTTGame, startGame } from './modules/gameUI.js';
-import { showAdminLogin, loginAdmin, logoutAdmin, showAdminStats, showAdminUsers, showAdminChats, showAdminReports, showAdminBot } from './modules/adminUI.js';
+import { showAdminLogin, loginAdmin, logoutAdmin, showAdminStats, showAdminUsers, showAdminChats, showAdminReports, showAdminBot, showAdminAdmins } from './modules/adminUI.js';
 import { initWebSocket } from './modules/search.js';
 import { showReportModal, closeReportModal, submitReport, updateReportCharCount } from './modules/reports.js';
 import { checkDailyBonus, showDailyBonusModal, closeDailyBonusModal } from './modules/dailyBonus.js';
@@ -175,6 +175,7 @@ window.showAdminStats = showAdminStats;
 window.showAdminUsers = showAdminUsers;
 window.showAdminChats = showAdminChats;
 window.showAdminReports = showAdminReports;
+window.showAdminAdmins = showAdminAdmins;
 window.showAdminBot = showAdminBot;
 
 // Функции для чатов
