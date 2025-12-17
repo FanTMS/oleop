@@ -290,16 +290,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Небольшая задержка для плавного перехода (минимум 500мс для показа загрузки)
-    const minLoadingTime = 500;
+    // Ровно 2 секунды загрузочного экрана
+    const LOADING_TIME = 2000;
     const startTime = Date.now();
     
     const currentUser = Storage.getCurrentUser();
     
-    if (currentUser) {
-        // Проверяем блокировку пользователя
-        import('./utils/api.js').then(async ({ checkUserBlockStatus }) => {
+    // Функция для обработки после загрузки
+    async function handleAfterLoading() {
+        // Ждем ровно 2 секунды с момента начала загрузки
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, LOADING_TIME - elapsed);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        hideLoadingScreen();
+        
+        if (currentUser) {
+            // Проверяем блокировку пользователя
             try {
+                const { checkUserBlockStatus } = await import('./utils/api.js');
                 const blockStatus = await checkUserBlockStatus(currentUser.id);
                 
                 if (blockStatus.isBlocked) {
@@ -317,31 +326,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         timeLeft = 'менее часа';
                     }
                     
-                    // Ждем минимальное время загрузки
-                    const elapsed = Date.now() - startTime;
-                    const remainingTime = Math.max(0, minLoadingTime - elapsed);
-                    await new Promise(resolve => setTimeout(resolve, remainingTime));
-                    
-                    hideLoadingScreen();
-                    
                     alert(`Вы заблокированы!\n\nПричина: ${blockStatus.reason}\nБлокировка до: ${blockedUntil.toLocaleString('ru-RU')}\nОсталось: ${timeLeft}`);
                     Storage.clearCurrentUser();
-                    import('./modules/auth.js').then(module => {
-                        module.showAuthScreen();
-                        module.showStep(1);
-                    });
+                    const { showAuthScreen, showStep } = await import('./modules/auth.js');
+                    showAuthScreen();
+                    showStep(1);
                     return;
                 }
             } catch (error) {
                 console.error('Ошибка проверки блокировки:', error);
             }
             
-            // Ждем минимальное время загрузки
-            const elapsed = Date.now() - startTime;
-            const remainingTime = Math.max(0, minLoadingTime - elapsed);
-            await new Promise(resolve => setTimeout(resolve, remainingTime));
-            
-            hideLoadingScreen();
+            // Перенаправляем на главную страницу
             showMainApp();
             
             // Инициализируем WebSocket для поиска
@@ -378,21 +374,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             });
-        });
-    } else {
-        // Ждем минимальное время загрузки
-        const elapsed = Date.now() - startTime;
-        const remainingTime = Math.max(0, minLoadingTime - elapsed);
-        
-        setTimeout(() => {
-            hideLoadingScreen();
+        } else {
             // Показываем экран регистрации
-            import('./modules/auth.js').then(module => {
-                module.showAuthScreen();
-                module.showStep(1);
-            });
-        }, remainingTime);
+            const { showAuthScreen, showStep } = await import('./modules/auth.js');
+            showAuthScreen();
+            showStep(1);
+        }
     }
+    
+    // Запускаем обработку после загрузки
+    handleAfterLoading();
     
     // Инициализация интересов
     initInterests();
